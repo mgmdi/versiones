@@ -17,3 +17,6 @@ Servers:
 
 * https://pyro4.readthedocs.io/en/stable/servercode.html
 
+Install requirements:
+
+pip install -r requirements.txt
