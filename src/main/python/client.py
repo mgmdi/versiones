@@ -23,7 +23,10 @@ def main():
     client = Client(ip) # Debo obtener la direccion ip para pasarla como parametro
     servers = find_servers()
     file = open('/home/mgmdi/Desktop/Versiones/requirements.txt','r')
-    servers.commit(file.read(), 'file')
+    file_ = open('/home/mgmdi/Desktop/Versiones/requirements.txt','r')
+    servers.commit(file.read(), 'file', ip)
+    servers.commit(file_.read(), 'file', ip)
+    servers.getVersions('file',ip)
     # Server getVersions pasandole el cliente y el nombre del archivo para mostrar
 
 
