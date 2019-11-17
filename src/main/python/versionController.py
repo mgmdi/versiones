@@ -21,7 +21,7 @@ class VersionController(object):
                 date_time_obj = datetime.strptime(time, '%m/%d/%Y %H:%M:%S')
                 stamp = datetime.timestamp(date_time_obj)
                 print(stamp)
-                if(version['timestamp'] == int(stamp)):
+                if(int(version['timestamp']) == int(stamp)):
                     print(version)
                     return version
         return {}     
@@ -47,7 +47,7 @@ class VersionController(object):
         date_time = now.strftime('%m/%d/%Y %H:%M:%S')
         print('Date time: ' + name + ' ' + date_time)
         timestamp = datetime.timestamp(now)
-        fileInfo = {'file': file, 'timestamp': int(timestamp)}
+        fileInfo = {'file': file, 'timestamp': timestamp}
         index = name + ':' + id
         if index in self.files:
             self.files[index].append(fileInfo)
@@ -62,7 +62,7 @@ class VersionController(object):
         recent_to_return = {}
         if(key in self.files):
             for version in self.files[key]:
-                if(version['timestamp'] >= recent_timestamp):
+                if(int(version['timestamp']) >= recent_timestamp):
                     recent_version = version
                     recent_timestamp = version['timestamp']
                     
