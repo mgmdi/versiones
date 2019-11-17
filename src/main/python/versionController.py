@@ -17,9 +17,11 @@ class VersionController(object):
         key = name + ':' + id
         if(key in self.files):
             for version in self.files[key]:
-                date_time_obj = datetime.datetime.strptime(time, '%m/%d/%Y %H:%M:%S')
-                timestamp = date_time_obj.timestamp("%m/%d/%Y %H:%M:%S")
-                if(version['timestamp'] == timestamp):
+                print(version)
+                date_time_obj = datetime.strptime(time, '%m/%d/%Y %H:%M:%S')
+                stamp = datetime.timestamp(date_time_obj)
+                print(stamp)
+                if(version['timestamp'] == int(stamp)):
                     print(version)
                     return version
         return {}     
@@ -41,8 +43,10 @@ class VersionController(object):
 
     def addFile(self, file, name, id):
         now = datetime.now()
+        date_time = now.strftime('%m/%d/%Y %H:%M:%S')
+        print('Date time: ' + name + ' ' + date_time)
         timestamp = datetime.timestamp(now)
-        fileInfo = {'file': file, 'timestamp': timestamp}
+        fileInfo = {'file': file, 'timestamp': int(timestamp)}
         index = name + ':' + id
         if index in self.files:
             self.files[index].append(fileInfo)
