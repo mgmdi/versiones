@@ -26,8 +26,9 @@ class VersionController(object):
                     return version
         return {}     
         
-    def update(self):
-        print('This is update')
+    def update(self, name, id):
+        recent_version = self.getRecentVersion(name, id)
+        return recent_version
 
     def getVersions(self, name, id):
         # Returns a dictionary: {datetime, file}
@@ -54,6 +55,24 @@ class VersionController(object):
             self.files[index] = [fileInfo]
         
 
+    def getRecentVersion(self, name, id):
+        key = name + ':' + id
+        recent_timestamp = 0
+        recent_version = {}
+        recent_to_return = {}
+        if(key in self.files):
+            for version in self.files[key]:
+                if(version['timestamp'] >= recent_timestamp):
+                    recent_version = version
+                    recent_timestamp = version['timestamp']
+                    
+        if recent_version:
+                date = datetime.fromtimestamp(recent_version['timestamp'])
+                date_time = date.strftime('%m/%d/%Y %H:%M:%S')
+                recent_to_return['file'] = recent_version['file']
+                recent_to_return['date'] = date_time
+        print(recent_to_return)
+        return recent_to_return 
 
 if __name__ == "__main__":
     server = VersionController()
