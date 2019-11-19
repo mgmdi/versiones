@@ -2,12 +2,15 @@ import Pyro4
 import netifaces as ni
 from datetime import datetime
 from collections import defaultdict
+import threading
+import time
 
 @Pyro4.expose
 class VersionController(object):
 
     def __init__(self):
         self.files = {}
+        self.table = ""
     
     # Services
     def commit(self, file, name, id):
@@ -72,15 +75,44 @@ class VersionController(object):
                 recent_to_return['file'] = recent_version['file']
                 recent_to_return['date'] = date_time
         print(recent_to_return)
-        return recent_to_return 
+        return recent_to_return
 
+    def saveTable(self,message):
+        self.table += message
+        print(self.table)
+
+
+
+def find_servers():
+
+    server = None
+    with Pyro4.locateNS() as ns:
+        for server, server_uri in ns.list(prefix="server.").items():
+            print("found server", server)
+            server = Pyro4.Proxy(server_uri)
+    if not server:
+        raise ValueError("No servers found")
+    return server
+
+def broadcast():
+    while(True):
+        ip = ni.ifaddresses('wlo1')[ni.AF_INET][0]['addr']
+        servers = find_servers()
+        servers.saveTable("holi ")
+        time.sleep(5)
+
+threads = list()
 if __name__ == "__main__":
     server = VersionController()
     ip = ni.ifaddresses('wlo1')[ni.AF_INET][0]['addr']
     # Establecer un puerto del sistema
-    with Pyro4.Daemon(host=ip,port=9090) as daemon:
+    #hilo para hacer broadcast
+    t = threading.Thread(target=broadcast)
+    threads.append(t)
+    t.start()
+    with Pyro4.Daemon(host=ip,port=9091) as daemon:
         server_uri = daemon.register(server)
         with Pyro4.locateNS() as ns:
-            ns.register("server.test", server_uri)
+            ns.register("server.test2", server_uri)
         print("Servers available.")
         daemon.requestLoop()
