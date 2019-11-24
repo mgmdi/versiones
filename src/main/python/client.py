@@ -20,7 +20,20 @@ def find_servers():
     return server
 
 def main():
-    ip = ni.ifaddresses('wlo1')[ni.AF_INET][0]['addr']
+    # Find interface with assigned ip address
+    interfaces = ni.interfaces()
+    ip = ""
+    for interface in interfaces:
+        if interface=='lo':
+            continue
+        try:
+            ip = ni.ifaddresses(interface)[ni.AF_INET][0]['addr']
+            break
+        except:
+            continue
+    if ip=="":
+        print("Not connected to the internet")
+        return -1
     client = Client(ip) # Debo obtener la direccion ip para pasarla como parametro
     servers = find_servers()
     file = open('/home/mgmdi/Desktop/Versiones/requirements.txt','r')
