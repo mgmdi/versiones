@@ -1,16 +1,18 @@
 import subprocess
 import threading
 import socket
+from common import get_ip_address
 
 
 class NameServer:
 
-
-    # TODO: hacer parametrizable la llamada al servidor de nombre
-
     def NS(self):
+        ip = get_ip_address()
+        if ip==None:
+            print("Not connected to the internet")            
+            return
         subprocess.call(
-            "python -m Pyro4.naming --host 192.168.0.105 --port 8080", shell=True)
+            "python -m Pyro4.naming --host "+ip+" --port 8080", shell=True)
 
 
 class Server(object):
@@ -44,7 +46,11 @@ class Server(object):
 def execute():
     # Name server
     nameServer = NameServer()
-    idAssignation = Server('192.168.0.105', 9090)
+    server_ip = get_ip_address()
+    if server_ip!=None:
+        idAssignation = Server(server_ip, 9090)
+    else:
+        print("Not connected to the internet")
     print(socket.gethostname())
     # Aqui inicio el name server thread y el thread de asignacion
     NS = threading.Thread(target=nameServer.NS)
@@ -52,7 +58,7 @@ def execute():
     print('started NS')
     idAssignationServer = threading.Thread(target=idAssignation.IDAssignation())
     idAssignationServer.start()
-    print('started id assignacion server')
+    print('started id assignation server')
 
 
 if __name__ == "__main__":

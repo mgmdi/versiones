@@ -3,6 +3,7 @@ import netifaces as ni
 from datetime import datetime
 from collections import defaultdict
 import socket
+from common import get_ip_address
 
 
 @Pyro4.expose
@@ -77,7 +78,7 @@ class VersionController(object):
         return recent_to_return
 
     def getID(self):
-        HOST = '192.168.0.105'    # The remote host
+        HOST = '192.168.0.103'    # The remote host
         PORT = 9090          # The same port as used by the server
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
@@ -88,7 +89,7 @@ class VersionController(object):
 
 if __name__ == "__main__":
     server = VersionController()
-    ip = ni.ifaddresses('wlo1')[ni.AF_INET][0]['addr']
+    ip = get_ip_address()
     # Establecer un puerto del sistema
     with Pyro4.Daemon(host=ip, port=9091) as daemon:
         server_uri = daemon.register(server)
