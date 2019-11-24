@@ -2,13 +2,15 @@ import Pyro4
 import netifaces as ni
 from datetime import datetime
 from collections import defaultdict
+import socket
+
 
 @Pyro4.expose
 class VersionController(object):
 
     def __init__(self):
         self.files = {}
-    
+
     # Services
     def commit(self, file, name, id):
         self.addFile(file, name, id)
@@ -24,8 +26,8 @@ class VersionController(object):
                 if(int(version['timestamp']) == int(stamp)):
                     print(version)
                     return version
-        return {}     
-        
+        return {}
+
     def update(self, name, id):
         recent_version = self.getRecentVersion(name, id)
         return recent_version
@@ -53,7 +55,6 @@ class VersionController(object):
             self.files[index].append(fileInfo)
         else:
             self.files[index] = [fileInfo]
-        
 
     def getRecentVersion(self, name, id):
         key = name + ':' + id
@@ -65,22 +66,33 @@ class VersionController(object):
                 if(int(version['timestamp']) >= recent_timestamp):
                     recent_version = version
                     recent_timestamp = version['timestamp']
-                    
+
         if recent_version:
-                date = datetime.fromtimestamp(recent_version['timestamp'])
-                date_time = date.strftime('%m/%d/%Y %H:%M:%S')
-                recent_to_return['file'] = recent_version['file']
-                recent_to_return['date'] = date_time
+            date = datetime.fromtimestamp(recent_version['timestamp'])
+            date_time = date.strftime('%m/%d/%Y %H:%M:%S')
+            recent_to_return['file'] = recent_version['file']
+            recent_to_return['date'] = date_time
         print(recent_to_return)
-        return recent_to_return 
+        return recent_to_return
+
+    def getID(self):
+        HOST = '192.168.0.105'    # The remote host
+        PORT = 9090          # The same port as used by the server
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((HOST, PORT))
+            data = s.recv(1024)
+        print('Received', repr(data))
+
 
 if __name__ == "__main__":
     server = VersionController()
     ip = ni.ifaddresses('wlo1')[ni.AF_INET][0]['addr']
     # Establecer un puerto del sistema
-    with Pyro4.Daemon(host=ip,port=9090) as daemon:
+    with Pyro4.Daemon(host=ip, port=9091) as daemon:
         server_uri = daemon.register(server)
         with Pyro4.locateNS() as ns:
             ns.register("server.test", server_uri)
+        # Debo pedir mi id
+        server.getID()
         print("Servers available.")
         daemon.requestLoop()
