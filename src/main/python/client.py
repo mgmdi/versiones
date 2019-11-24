@@ -1,6 +1,8 @@
 import Pyro4
 import netifaces as ni
 import time
+from common import get_ip_address
+import os.path as op
 
 class Client:
 
@@ -20,24 +22,15 @@ def find_servers():
     return server
 
 def main():
-    # Find interface with assigned ip address
-    interfaces = ni.interfaces()
-    ip = ""
-    for interface in interfaces:
-        if interface=='lo':
-            continue
-        try:
-            ip = ni.ifaddresses(interface)[ni.AF_INET][0]['addr']
-            break
-        except:
-            continue
-    if ip=="":
+    ip = get_ip_address()
+    if ip==None:
         print("Not connected to the internet")
         return -1
     client = Client(ip) # Debo obtener la direccion ip para pasarla como parametro
     servers = find_servers()
-    file = open('/home/mgmdi/Desktop/Versiones/requirements.txt','r')
-    file_ = open('/home/mgmdi/Desktop/Versiones/test.txt','r')
+    versiones_dir = op.abspath(op.join(__file__, op.pardir, op.pardir, op.pardir, op.pardir))
+    file = open(op.join(versiones_dir, "requirements.txt"),'r')
+    file_ = open(op.join(versiones_dir, "test.txt"),'r')
     servers.commit(file.read(), 'file', ip)
     time.sleep(3.5)
     servers.commit(file_.read(), 'file', ip)
