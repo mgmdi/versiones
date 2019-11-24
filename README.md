@@ -1,21 +1,16 @@
-Pyro 4.76 docs (RPC):
-* https://pyro4.readthedocs.io/en/stable/
+* Primero instalar requirements.txt:
+    pip install -r requirements.txt
 
-Tutorial same machine:
+* Como probar:
 
-* https://pyro4.readthedocs.io/en/stable/tutorials.html
+En una consola colocar: 
 
-Different machines:
+Este es el servidor de nombre
+python -m Pyro4.naming --host ip --port puerto
 
-* https://pyro4.readthedocs.io/en/stable/tutorials.html#building-a-stock-market-simulator
+En otra el servidor y en otra el cliente.
 
-Clients:
-
-* https://pyro4.readthedocs.io/en/stable/clientcode.html
-
-Servers: 
-
-* https://pyro4.readthedocs.io/en/stable/servercode.html
+Las pruebas con los archivos estan en el cliente
 
 Install requirements:
 

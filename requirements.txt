@@ -1,1 +1,2 @@
 pyro4==4.76
+netifaces==0.10.9
