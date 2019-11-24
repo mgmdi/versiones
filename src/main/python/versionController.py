@@ -10,6 +10,7 @@ class VersionController(object):
 
     def __init__(self):
         self.files = {}
+        self.id = None
 
     # Services
     def commit(self, file, name, id):
@@ -81,6 +82,7 @@ class VersionController(object):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
             data = s.recv(1024)
+            self.id = data.decode()
         print('Received', repr(data))
 
 
