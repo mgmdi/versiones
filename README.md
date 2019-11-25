@@ -12,3 +12,6 @@ En otra el servidor y en otra el cliente.
 
 Las pruebas con los archivos estan en el cliente
 
+Install requirements:
+
+pip install -r requirements.txt
