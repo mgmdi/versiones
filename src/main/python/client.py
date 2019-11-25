@@ -28,8 +28,8 @@ def main():
     servers.commit(file.read(), 'file', ip)
     time.sleep(3.5)
     servers.commit(file_.read(), 'file', ip)
-    servers.update('file', ip)
-    # servers.getVersions('file',ip)
+    # servers.update('file', ip)
+    servers.getVersions('file',ip)
     # servers.checkout('file',ip, '11/17/2019 10:46:23')
     # Server getVersions pasandole el cliente y el nombre del archivo para mostrar
 

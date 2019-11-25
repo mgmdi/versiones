@@ -15,6 +15,8 @@ class VersionController(object):
     # Services
     def commit(self, file, name, id):
         self.addFile(file, name, id)
+        print(self.files)
+
 
     def checkout(self, name, id, time):
         key = name + ':' + id
@@ -38,17 +40,20 @@ class VersionController(object):
         versions = {}
         key = name + ':' + id
         if(key in self.files):
+            versions[name] = []
             for version in self.files[key]:
+                versionObj = {}
                 date = datetime.fromtimestamp(version['timestamp'])
                 date_time = date.strftime('%m/%d/%Y %H:%M:%S')
-                versions['datetime'] = date_time
-                versions['file'] = version['file']
+                versionObj['datetime'] = date_time
+                versionObj['file'] = version['file']
+                versions[name].append(versionObj)
+        print(versions)
         return versions
 
     def addFile(self, file, name, id):
         now = datetime.now()
         date_time = now.strftime('%m/%d/%Y %H:%M:%S')
-        print('Date time: ' + name + ' ' + date_time)
         timestamp = datetime.timestamp(now)
         fileInfo = {'file': file, 'timestamp': timestamp}
         index = name + ':' + id
