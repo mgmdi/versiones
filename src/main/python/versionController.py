@@ -24,10 +24,10 @@ class VersionController(object):
         key = name + ':' + id
         if(key in self.files):
             for version in self.files[key]:
-                print(version)
+                # print(version)
                 date_time_obj = datetime.strptime(time, '%m/%d/%Y %H:%M:%S')
                 stamp = datetime.timestamp(date_time_obj)
-                print(stamp)
+                # print(stamp)
                 if(int(version['timestamp']) == int(stamp)):
                     print(version)
                     return version

@@ -33,10 +33,12 @@ def main():
     file_ = open(op.join(versiones_dir, "test.txt"),'r')
     servers.commit(file.read(), 'file', ip)
     time.sleep(3.5)
-    servers.commit(file_.read(), 'file', ip)
-    # servers.update('file', ip)
-    servers.getVersions('file',ip)
-    # servers.checkout('file',ip, '11/17/2019 10:46:23')
+    # servers.commit(file_.read(), 'file', ip)
+    # servers.getVersions('file', ip)
+    # time.sleep(3.5)
+    servers.update('file', ip)
+    time.sleep(3.5)
+    # print(servers.checkout('file', ip, '11/24/2019 22:12:29'))
     # Server getVersions pasandole el cliente y el nombre del archivo para mostrar
 
 
