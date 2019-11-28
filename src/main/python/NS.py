@@ -32,7 +32,7 @@ class Server(object):
 
     def IDAssignation(self):
         HOST = self._host         # Symbolic name meaning all available interfaces
-        PORT = 9090         # Arbitrary non-privileged port
+        PORT = self._port         # Arbitrary non-privileged port
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind((HOST, PORT))
             s.listen(10)
@@ -51,7 +51,6 @@ def execute():
         idAssignation = Server(server_ip, 9090)
     else:
         print("Not connected to the internet")
-    print(socket.gethostname())
     # Aqui inicio el name server thread y el thread de asignacion
     NS = threading.Thread(target=nameServer.NS)
     NS.start()

@@ -14,4 +14,4 @@ def get_ip_address():
             continue
     if ip=="":
         return None
-    return ip
+    return str(ip)
