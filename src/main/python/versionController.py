@@ -115,8 +115,6 @@ def find_servers():
 
 def broadcast():
     while(True):
-        # ip = ni.ifaddresses('wlo1')[ni.AF_INET][0]['addr']
-        ip = get_ip_address()
         servers = find_servers()
         servers.saveTable("holi ")
         time.sleep(5)
