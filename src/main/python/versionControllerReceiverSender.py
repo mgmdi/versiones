@@ -154,14 +154,22 @@ class receive(Thread):
     
     def run(self):
         multicast_group = '224.10.10.10'
-
-        server_address = ('', 10000)
+        connected = False
 
         # Create the socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         # Bind to the server address
-        sock.bind(server_address)
+        server_port = 10000
+        while(not connected):
+            try:
+                server_address = ('', server_port)
+                sock.bind(server_address)
+                connected = True
+
+            except: # TODO: AVERIGUAR CUAL ES LA EXCEPCION PARA ABORTAR EN LAS OTRAS
+                server_port += 1
+                print("Aumentando puerto")
 
         # Tell the operating system to add the socket to
         # the multicast group on all interfaces.
