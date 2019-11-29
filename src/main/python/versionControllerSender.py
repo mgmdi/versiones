@@ -22,7 +22,6 @@ class VersionController(object):
         self.addFile(file, name, id)
         print(self.files)
 
-
     def checkout(self, name, id, time):
         key = name + ':' + id
         if(key in self.files):
@@ -87,9 +86,11 @@ class VersionController(object):
         return recent_to_return
 
     def getID(self):
-        config = open(op.join(op.dirname(op.abspath(__file__)), "config.txt"),"r")
+        config = open(
+            op.join(op.dirname(op.abspath(__file__)), "config.txt"), "r")
         HOST = config.readline().strip('\n')    # The remote host
-        PORT = int(config.readline().strip('\n'))          # The same port as used by the server
+        # The same port as used by the server
+        PORT = int(config.readline().strip('\n'))
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
             data = s.recv(1024)
@@ -148,6 +149,7 @@ def executeController():
         server.getID()
         print("Servers available.")
         daemon.requestLoop()
+
 
 if __name__ == "__main__":
     versionController = threading.Thread(target=executeController())
