@@ -12,7 +12,7 @@ class NameServer:
             print("Not connected to the internet")            
             return
         subprocess.call(
-            "python3.7 -m Pyro4.naming --host "+ip+" --port 8080", shell=True)
+            "python -m Pyro4.naming --host "+ip+" --port 8080", shell=True)
 
 
 class Server(object):

@@ -132,12 +132,20 @@ if __name__ == "__main__":
     #     server_uri = daemon.register(server)
     #     with Pyro4.locateNS() as ns:
     #         ns.register("server.test2", server_uri)
-    
-    with Pyro4.Daemon(host=ip, port=9091) as daemon:
-        server_uri = daemon.register(server)
-        with Pyro4.locateNS() as ns:
-            ns.register("server.test", server_uri)
-        # Debo pedir mi id
-        server.getID()
-        print("Servers available.")
-        daemon.requestLoop()
+    connected = False
+    server_port = 9091
+    server_no = 0
+    while(not connected):
+        try:
+            with Pyro4.Daemon(host=ip, port=server_port) as daemon:
+                server_uri = daemon.register(server)
+                with Pyro4.locateNS() as ns:
+                    ns.register(f"server.test{server_no}", server_uri)
+                # Debo pedir mi id
+                server.getID()
+                print("Servers available.")
+                connected = True
+                daemon.requestLoop()
+        except:
+            server_port += 1
+            server_no += 1
