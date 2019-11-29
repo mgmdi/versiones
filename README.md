@@ -27,15 +27,15 @@ pip install -r requirements.txt
 
 ### Ejecutar servidor de nombre
 
-Luego de activar el entorno virtual, colocar en una consola:
+Asegúrese de activar el entorno virtual antes de continuar, luego coloque en una consola:
 
 ```
-python python src/main/python/NS.py
+python src/main/python/NS.py
 ```
 
 ### Ejecutar servidor de versiones y cliente
 
-Luego de ejecutar el servidor de nombre, coloca en dos consolas:
+Luego de ejecutar el servidor de nombre, coloque en dos consolas:
 
 ```
 python src/main/python/versionController.py
