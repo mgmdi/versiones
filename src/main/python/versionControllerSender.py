@@ -8,6 +8,7 @@ import threading
 import os.path as op
 import time
 import struct
+from threading import Thread
 
 
 @Pyro4.expose
@@ -97,61 +98,79 @@ class VersionController(object):
         print('Received', repr(data))
 
 
-def broadcast():
-    message = b'very important data'
-    multicast_group = ('224.0.0.251', 10000)
+class broadcast(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.daemon = True
+        self.start()
 
-    # Create the datagram socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    def run(self):
+        message = b'very important data'
+        multicast_group = ('224.10.10.10', 10000)
 
-    # Set a timeout so the socket does not block
-    # indefinitely when trying to receive data.
-    sock.settimeout(0.2)
+        # Create the datagram socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    # Set the time-to-live for messages to 1 so they do not
-    # go past the local network segment.
-    ttl = struct.pack('b', 1)
-    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
+        # Set a timeout so the socket does not block
+        # indefinitely when trying to receive data.
+        sock.settimeout(0.2)
 
-    try:
+        # Set the time-to-live for messages to 1 so they do not
+        # go past the local network segment.
+        ttl = struct.pack('b', 1)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
 
-        # Send data to the multicast group
-        print('sending {!r}'.format(message))
-        sent = sock.sendto(message, multicast_group)
+        try:
 
-        # Look for responses from all recipients
-        while True:
-            print('waiting to receive')
-            try:
-                data, server = sock.recvfrom(16)
-            except socket.timeout:
-                print('timed out, no more responses')
-                break
-            else:
-                print('received {!r} from {}'.format(
-                    data, server))
+            # Send data to the multicast group
+            print('sending {!r}'.format(message))
+            sent = sock.sendto(message, multicast_group)
 
-    finally:
-        print('closing socket')
-        sock.close()
+            # Look for responses from all recipients
+            while True:
+                print('waiting to receive')
+                try:
+                    data, server = sock.recvfrom(16)
+                except socket.timeout:
+                    print('timed out, no more responses')
+                    break
+                else:
+                    print('received {!r} from {}'.format(
+                        data, server))
+
+        finally:
+            print('closing socket')
+            sock.close()
 
 
-def executeController():
-    server = VersionController()
-    ip = get_ip_address()
-    # Establecer un puerto del sistema
-    # with Pyro4.Daemon(host=ip, port=9093) as daemon:
-    #     server_uri = daemon.register(server)
-    #     with Pyro4.locateNS() as ns:
-    #         ns.register("server.test1", server_uri)
-    #     # Debo pedir mi id
-    #     server.getID()
-    #     print("Servers available.")
-    #     daemon.requestLoop()
-    run_server(server, ip, 9091, 30)
+class executeController(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.daemon = True
+        self.start()
+
+    def run(self):
+        server = VersionController()
+        ip = get_ip_address()
+        # Establecer un puerto del sistema
+        # with Pyro4.Daemon(host=ip, port=9091) as daemon:
+        #     server_uri = daemon.register(server)
+        #     with Pyro4.locateNS() as ns:
+        #         ns.register("server.test", server_uri)
+        #     # Debo pedir mi id
+        #     server.getID()
+        #     print("Servers available.")
+        #     daemon.requestLoop()
+        run_server(server, ip, 9091, 0)
 
 if __name__ == "__main__":
-    versionController = threading.Thread(target=executeController())
-    versionController.start()
-    broadcastSender = threading.Thread(target=broadcast())
-    broadcastSender.start()
+    # versionController = threading.Thread(target=executeController())
+    # versionController.start()
+    # broadcastSender = threading.Thread(target=broadcast())
+    # broadcastSender.start()
+    executeController()
+    print("started controller")
+    broadcast()
+    print("started multicast sender")
+    while True:
+        pass

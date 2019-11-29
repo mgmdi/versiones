@@ -8,6 +8,7 @@ import threading
 import os.path as op
 import time
 import struct
+from threading import Thread
 
 
 @Pyro4.expose
@@ -98,58 +99,77 @@ class VersionController(object):
         print('Received', repr(data))
 
 
-def receive():
-    multicast_group = '224.0.0.251'
+class receive(Thread):
 
-    server_address = ('0.0.0.0', 10000)
+    def __init__(self):
+        Thread.__init__(self)
+        self.daemon = True
+        self.start()
+    
+    def run(self):
+        multicast_group = '224.10.10.10'
 
-    # Create the socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        server_address = ('', 10000)
 
-    # Bind to the server address
-    sock.bind(server_address)
+        # Create the socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    # Tell the operating system to add the socket to
-    # the multicast group on all interfaces.
-    group = socket.inet_aton(multicast_group)
-    mreq = struct.pack('4sL', group, socket.INADDR_ANY)
-    sock.setsockopt(
-        socket.IPPROTO_IP,
-        socket.IP_ADD_MEMBERSHIP,
-        mreq)
+        # Bind to the server address
+        sock.bind(server_address)
 
-    # Receive/respond loop
-    while True:
-        print('\nwaiting to receive message')
-        data, address = sock.recvfrom(1024)
+        # Tell the operating system to add the socket to
+        # the multicast group on all interfaces.
+        group = socket.inet_aton(multicast_group)
+        mreq = struct.pack('4sL', group, socket.INADDR_ANY)
+        sock.setsockopt(
+            socket.IPPROTO_IP,
+            socket.IP_ADD_MEMBERSHIP,
+            mreq)
 
-        print('received {} bytes from {}'.format(
-            len(data), address))
-        print(data)
+        # Receive/respond loop
+        while True:
+            print('\nwaiting to receive message')
+            data, address = sock.recvfrom(1024)
 
-        print('sending acknowledgement to', address)
-        sock.sendto(b'ack', address)
+            print('received {} bytes from {}'.format(
+                len(data), address))
+            print(data)
+
+            print('sending acknowledgement to', address)
+            sock.sendto(b'ack', address)
 
 
-def executeController():
-    server = VersionController()
-    ip = get_ip_address()
-    # Establecer un puerto del sistema
-    # with Pyro4.Daemon(host=ip, port=9091) as daemon:
-    #     server_uri = daemon.register(server)
-    #     with Pyro4.locateNS() as ns:
-    #         ns.register("server.test", server_uri)
-    #     # Debo pedir mi id
-    #     server.getID()
-    #     print("Servers available.")
-    #     daemon.requestLoop()
-    run_server(server, ip, 9091, 0)
+class executeController(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.daemon = True
+        self.start()
+
+    def run(self):
+        server = VersionController()
+        ip = get_ip_address()
+        # Establecer un puerto del sistema
+        # with Pyro4.Daemon(host=ip, port=9091) as daemon:
+        #     server_uri = daemon.register(server)
+        #     with Pyro4.locateNS() as ns:
+        #         ns.register("server.test", server_uri)
+        #     # Debo pedir mi id
+        #     server.getID()
+        #     print("Servers available.")
+        #     daemon.requestLoop()
+        run_server(server, ip, 9091, 0)
 
 if __name__ == "__main__":
-    versionController = threading.Thread(target=executeController())
-    versionController.start()
-    broadcastReceiver = threading.Thread(target=receive())
-    broadcastReceiver.start()
+    # versionController = threading.Thread(target=executeController())
+    # versionController.start()
+    # broadcastReceiver = threading.Thread(target=receive())
+    # broadcastReceiver.start()
+    executeController()
+    print("started controller")
+    receive()
+    print("started multicast receiver")
+    while True:
+        pass
 """     time.sleep(2)
     print('send')
     broadcastSender = threading.Thread(target=broadcast())
