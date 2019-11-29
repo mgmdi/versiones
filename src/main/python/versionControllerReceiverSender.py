@@ -158,6 +158,8 @@ class receive(Thread):
 
         # Create the socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        # Reusa el address para que sea todos contra todos
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         server_address = ('', 10000)
