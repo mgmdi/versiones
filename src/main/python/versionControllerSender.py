@@ -3,7 +3,7 @@ import netifaces as ni
 from datetime import datetime
 from collections import defaultdict
 import socket
-from common import get_ip_address
+from common import *
 import threading
 import os.path as op
 import time
@@ -140,14 +140,15 @@ def executeController():
     server = VersionController()
     ip = get_ip_address()
     # Establecer un puerto del sistema
-    with Pyro4.Daemon(host=ip, port=9093) as daemon:
-        server_uri = daemon.register(server)
-        with Pyro4.locateNS() as ns:
-            ns.register("server.test1", server_uri)
-        # Debo pedir mi id
-        server.getID()
-        print("Servers available.")
-        daemon.requestLoop()
+    # with Pyro4.Daemon(host=ip, port=9093) as daemon:
+    #     server_uri = daemon.register(server)
+    #     with Pyro4.locateNS() as ns:
+    #         ns.register("server.test1", server_uri)
+    #     # Debo pedir mi id
+    #     server.getID()
+    #     print("Servers available.")
+    #     daemon.requestLoop()
+    run_server(server, ip, 9091, 30)
 
 if __name__ == "__main__":
     versionController = threading.Thread(target=executeController())
