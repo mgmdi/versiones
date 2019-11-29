@@ -22,6 +22,7 @@ class VersionController(object):
         self.addFile(file, name, id)
         print(self.files)
 
+
     def checkout(self, name, id, time):
         key = name + ':' + id
         if(key in self.files):
@@ -86,11 +87,9 @@ class VersionController(object):
         return recent_to_return
 
     def getID(self):
-        config = open(
-            op.join(op.dirname(op.abspath(__file__)), "config.txt"), "r")
+        config = open(op.join(op.dirname(op.abspath(__file__)), "config.txt"),"r")
         HOST = config.readline().strip('\n')    # The remote host
-        # The same port as used by the server
-        PORT = int(config.readline().strip('\n'))
+        PORT = int(config.readline().strip('\n'))          # The same port as used by the server
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
             data = s.recv(1024)
@@ -98,59 +97,60 @@ class VersionController(object):
         print('Received', repr(data))
 
 
-def receive():
-    multicast_group = '224.0.0.251'
+def broadcast():
+    message = b'very important data'
+    multicast_group = ('224.0.0.251', 10000)
 
-    server_address = ('0.0.0.0', 10000)
-
-    # Create the socket
+    # Create the datagram socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    # Bind to the server address
-    sock.bind(server_address)
+    # Set a timeout so the socket does not block
+    # indefinitely when trying to receive data.
+    sock.settimeout(0.2)
 
-    # Tell the operating system to add the socket to
-    # the multicast group on all interfaces.
-    group = socket.inet_aton(multicast_group)
-    mreq = struct.pack('4sL', group, socket.INADDR_ANY)
-    sock.setsockopt(
-        socket.IPPROTO_IP,
-        socket.IP_ADD_MEMBERSHIP,
-        mreq)
+    # Set the time-to-live for messages to 1 so they do not
+    # go past the local network segment.
+    ttl = struct.pack('b', 1)
+    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
 
-    # Receive/respond loop
-    while True:
-        print('\nwaiting to receive message')
-        data, address = sock.recvfrom(1024)
+    try:
 
-        print('received {} bytes from {}'.format(
-            len(data), address))
-        print(data)
+        # Send data to the multicast group
+        print('sending {!r}'.format(message))
+        sent = sock.sendto(message, multicast_group)
 
-        print('sending acknowledgement to', address)
-        sock.sendto(b'ack', address)
+        # Look for responses from all recipients
+        while True:
+            print('waiting to receive')
+            try:
+                data, server = sock.recvfrom(16)
+            except socket.timeout:
+                print('timed out, no more responses')
+                break
+            else:
+                print('received {!r} from {}'.format(
+                    data, server))
+
+    finally:
+        print('closing socket')
+        sock.close()
 
 
 def executeController():
     server = VersionController()
     ip = get_ip_address()
     # Establecer un puerto del sistema
-    with Pyro4.Daemon(host=ip, port=9091) as daemon:
+    with Pyro4.Daemon(host=ip, port=9093) as daemon:
         server_uri = daemon.register(server)
         with Pyro4.locateNS() as ns:
-            ns.register("server.test", server_uri)
+            ns.register("server.test1", server_uri)
         # Debo pedir mi id
         server.getID()
         print("Servers available.")
         daemon.requestLoop()
 
-
 if __name__ == "__main__":
     versionController = threading.Thread(target=executeController())
     versionController.start()
-    broadcastReceiver = threading.Thread(target=receive())
-    broadcastReceiver.start()
-"""     time.sleep(2)
-    print('send')
     broadcastSender = threading.Thread(target=broadcast())
-    broadcastSender.start() """
+    broadcastSender.start()
