@@ -1,4 +1,5 @@
 import netifaces as ni
+import Pyro4
 
 def get_ip_address():
     # Find interface with assigned ip address
@@ -15,3 +16,20 @@ def get_ip_address():
     if ip=="":
         return None
     return str(ip)
+
+def run_server(server, ip, server_port, server_no):
+    connected = False
+    while(not connected):
+        try:
+            with Pyro4.Daemon(host=ip, port=server_port) as daemon:
+                server_uri = daemon.register(server)
+                with Pyro4.locateNS() as ns:
+                    ns.register(f"server.test{server_no}", server_uri)
+                # Debo pedir mi id
+                server.getID()
+                print("Servers available.")
+                connected = True
+                daemon.requestLoop()
+        except:
+            server_port += 1
+            server_no += 1
