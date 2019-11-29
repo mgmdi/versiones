@@ -5,7 +5,7 @@ from collections import defaultdict
 import threading
 import time
 import socket
-from common import get_ip_address
+from common import *
 import os.path as op
 
 
@@ -132,20 +132,4 @@ if __name__ == "__main__":
     #     server_uri = daemon.register(server)
     #     with Pyro4.locateNS() as ns:
     #         ns.register("server.test2", server_uri)
-    connected = False
-    server_port = 9091
-    server_no = 0
-    while(not connected):
-        try:
-            with Pyro4.Daemon(host=ip, port=server_port) as daemon:
-                server_uri = daemon.register(server)
-                with Pyro4.locateNS() as ns:
-                    ns.register(f"server.test{server_no}", server_uri)
-                # Debo pedir mi id
-                server.getID()
-                print("Servers available.")
-                connected = True
-                daemon.requestLoop()
-        except:
-            server_port += 1
-            server_no += 1
+    run_server(server, ip, 9091, 0)
