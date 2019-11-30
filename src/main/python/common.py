@@ -30,6 +30,6 @@ def run_server(server, ip, server_port, server_no):
                 print("Servers available.")
                 connected = True
                 daemon.requestLoop()
-        except:
+        except: # TODO: AVERIGUAR CUAL ES LA EXCEPCION PARA ABORTAR EN LAS OTRAS
             server_port += 1
             server_no += 1

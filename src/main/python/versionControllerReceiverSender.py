@@ -23,6 +23,7 @@ class VersionController(object):
         self.addFile(file, name, id)
         print(self.files)
 
+
     def checkout(self, name, id, time):
         key = name + ':' + id
         if(key in self.files):
@@ -87,11 +88,9 @@ class VersionController(object):
         return recent_to_return
 
     def getID(self):
-        config = open(
-            op.join(op.dirname(op.abspath(__file__)), "config.txt"), "r")
+        config = open(op.join(op.dirname(op.abspath(__file__)), "config.txt"),"r")
         HOST = config.readline().strip('\n')    # The remote host
-        # The same port as used by the server
-        PORT = int(config.readline().strip('\n'))
+        PORT = int(config.readline().strip('\n'))          # The same port as used by the server
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
             data = s.recv(1024)
@@ -114,34 +113,78 @@ class broadcast(Thread):
 
         # Set a timeout so the socket does not block
         # indefinitely when trying to receive data.
-        sock.settimeout(0.2)
+        sock.settimeout(0.6)
 
         # Set the time-to-live for messages to 1 so they do not
         # go past the local network segment.
         ttl = struct.pack('b', 1)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
 
-        try:
+        while True:
 
-            # Send data to the multicast group
-            print('sending {!r}'.format(message))
-            sent = sock.sendto(message, multicast_group)
+            try:
 
-            # Look for responses from all recipients
-            while True:
-                print('waiting to receive')
-                try:
-                    data, server = sock.recvfrom(16)
-                except socket.timeout:
-                    print('timed out, no more responses')
-                    break
-                else:
-                    print('received {!r} from {}'.format(
-                        data, server))
+                # Send data to the multicast group
+                print('sending {!r}'.format(message))
+                sent = sock.sendto(message, multicast_group)
 
-        finally:
-            print('closing socket')
-            sock.close()
+                # Look for responses from all recipients
+                while True:
+                    print('waiting to receive')
+                    try:
+                        data, server = sock.recvfrom(16)
+                    except socket.timeout:
+                        print('timed out, no more responses')
+                        break
+                    else:
+                        print('received {!r} from {}'.format(
+                            data, server))
+
+            finally:
+                pass
+                # print('closing socket')
+                # sock.close()
+
+class receive(Thread):
+
+    def __init__(self):
+        Thread.__init__(self)
+        self.daemon = True
+        self.start()
+    
+    def run(self):
+        multicast_group = '224.10.10.10'
+        connected = False
+
+        # Create the socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        # Reusa el address para que sea todos contra todos
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        server_address = ('', 10000)
+        sock.bind(server_address)
+
+        # Tell the operating system to add the socket to
+        # the multicast group on all interfaces.
+        group = socket.inet_aton(multicast_group)
+        mreq = struct.pack('4sL', group, socket.INADDR_ANY)
+        sock.setsockopt(
+            socket.IPPROTO_IP,
+            socket.IP_ADD_MEMBERSHIP,
+            mreq)
+
+        # Receive/respond loop
+        while True:
+            print('\nwaiting to receive message')
+            data, address = sock.recvfrom(1024)
+
+            print('received {} bytes from {}'.format(
+                len(data), address))
+            print(data)
+
+            print('sending acknowledgement to', address)
+            sock.sendto(b'ack', address)
 
 
 class executeController(Thread):
@@ -164,7 +207,6 @@ class executeController(Thread):
         #     daemon.requestLoop()
         run_server(server, ip, 9091, 0)
 
-
 if __name__ == "__main__":
     # versionController = threading.Thread(target=executeController())
     # versionController.start()
@@ -172,6 +214,7 @@ if __name__ == "__main__":
     # broadcastSender.start()
     executeController()
     print("started controller")
+    receive()
     broadcast()
     print("started multicast sender")
     while True:

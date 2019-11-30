@@ -33,7 +33,7 @@ def main():
     file_ = open(op.join(versiones_dir, "test.txt"),'r')
     servers.commit(file.read(), 'file', ip)
     time.sleep(3.5)
-    # servers.commit(file_.read(), 'file', ip)
+    servers.commit(file_.read(), 'file', ip)
     # servers.getVersions('file', ip)
     # time.sleep(3.5)
     servers.update('file', ip)

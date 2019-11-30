@@ -1,17 +1,48 @@
-* Primero instalar requirements.txt:
-    pip install -r requirements.txt
+# Controlador de versiones
 
-* Como probar:
+## Cómo ejecutar
 
-En una consola colocar: 
+### Configuración de un entorno virtual
 
-Este es el servidor de nombre
-python -m Pyro4.naming --host ip --port puerto
+Cree un nuevo entorno virtual en la carpeta del proyecto con python 3.6 o 3.7 por defecto:
 
-En otra el servidor y en otra el cliente.
+```
+virtualenv env --python=$(which python3.6)
+```
 
-Las pruebas con los archivos estan en el cliente
+Para activar el entorno:
+```
+source env/bin/activate
+```
 
-Install requirements:
+Para desactivar el entorno:
+```
+deactivate
+```
 
+Para instalar los paquetes necesarios:
+```
 pip install -r requirements.txt
+```
+
+### Ejecutar servidor de nombre
+
+Asegúrese de activar el entorno virtual antes de continuar, luego coloque en una consola:
+
+```
+python src/main/python/NS.py
+```
+
+### Ejecutar servidor de versiones y cliente
+
+Luego de ejecutar el servidor de nombre, coloque en dos consolas:
+
+```
+python src/main/python/versionController.py
+```
+
+y
+
+```
+python src/main/python/client.py
+```
