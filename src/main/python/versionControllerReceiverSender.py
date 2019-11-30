@@ -9,14 +9,34 @@ import os.path as op
 import time
 import struct
 from threading import Thread
+import pickle
 
 
 @Pyro4.expose
 class VersionController(object):
 
-    def __init__(self):
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
         self.files = {}
         self.id = None
+        self.serversTable = {}
+        self.starting = True
+
+    def getStartingValue(self):
+        return self.starting
+
+    def setRunning(self):
+        self.starting = False
+    
+    def getServerID(self):
+        return self.id
+
+    def getHOST(self):
+        return self.host
+
+    def getPORT(self):
+        return self.port
 
     # Services
     def commit(self, file, name, id):
@@ -102,10 +122,21 @@ class broadcast(Thread):
     def __init__(self):
         Thread.__init__(self)
         self.daemon = True
+        self.message = None
+        self.send = False
         self.start()
 
+    def canSend(self):
+        self.send = True
+    
+    def cantSend(self):
+        self.send = False
+
+    def setMessage(self, msg):
+        self.message = pickle.dumps(msg)
+
     def run(self):
-        message = b'very important data'
+        # message = b'very important data'
         multicast_group = ('224.10.10.10', 10000)
 
         # Create the datagram socket
@@ -121,37 +152,53 @@ class broadcast(Thread):
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
 
         while True:
+            # Debo setear que no pueda enviar despues recibir los ack -> depende del numero del mensaje recibo n acks
+            # ya esta seteado el timeout asi que despues de eso debo contar los ack
+            # en caso de enviar el id, no cuento los ack
+            if(self.send):
+                try:
 
-            try:
+                    # Send data to the multicast group
+                    print('sending {!r}'.format(self.message))
+                    sent = sock.sendto(self.message, multicast_group)
 
-                # Send data to the multicast group
-                print('sending {!r}'.format(message))
-                sent = sock.sendto(message, multicast_group)
+                    # Look for responses from all recipients
+                    while True:
+                        print('waiting to receive')
+                        try:
+                            data, server = sock.recvfrom(16)
+                        except socket.timeout:
+                            print('timed out, no more responses')
+                            self.cantSend()
+                            break
+                        else:
+                            print('received {!r} from {}'.format(
+                                data, server))
 
-                # Look for responses from all recipients
-                while True:
-                    print('waiting to receive')
-                    try:
-                        data, server = sock.recvfrom(16)
-                    except socket.timeout:
-                        print('timed out, no more responses')
-                        break
-                    else:
-                        print('received {!r} from {}'.format(
-                            data, server))
-
-            finally:
-                pass
-                # print('closing socket')
-                # sock.close()
+                finally:
+                    pass
+                    # print('closing socket')
+                    # sock.close()
 
 class receive(Thread):
 
     def __init__(self):
         Thread.__init__(self)
         self.daemon = True
+        self.receivedMsg = {}
+        self.received = False
         self.start()
-    
+
+    def getMessage(self):
+        self.received = False
+        return self.receivedMsg
+
+    def cleanMessage(self):
+        self.receivedMsg = {}
+
+    def getReceived(self):
+        return self.received
+
     def run(self):
         multicast_group = '224.10.10.10'
         connected = False
@@ -181,41 +228,59 @@ class receive(Thread):
 
             print('received {} bytes from {}'.format(
                 len(data), address))
+            data = pickle.loads(data)
             print(data)
-
+            if(data.code == 0):
+                self.receivedMsg = {
+                    'code': data.code,
+                    'id': data.id,
+                    'ip': data.ip,
+                    'port': data.port
+                }
+            self.received = True
             print('sending acknowledgement to', address)
             sock.sendto(b'ack', address)
 
+class IdMessage:
+    def __init__(self, id, ip, port):
+        self.code = 0
+        self.id = id
+        self.ip = ip
+        self.port = port
+
+    def __repr__(self):
+        return 'Server ID: ' + self.id + ' ' + 'IP: ' + self.ip
 
 class executeController(Thread):
     def __init__(self):
         Thread.__init__(self)
         self.daemon = True
+        self.server = VersionController(get_ip_address(), 9091)
         self.start()
 
     def run(self):
-        server = VersionController()
-        ip = get_ip_address()
-        # Establecer un puerto del sistema
-        # with Pyro4.Daemon(host=ip, port=9091) as daemon:
-        #     server_uri = daemon.register(server)
-        #     with Pyro4.locateNS() as ns:
-        #         ns.register("server.test", server_uri)
-        #     # Debo pedir mi id
-        #     server.getID()
-        #     print("Servers available.")
-        #     daemon.requestLoop()
-        run_server(server, ip, 9091, 0)
+        self.ip = get_ip_address()
+        run_server(self.server, self.server.getHOST(), self.server.getPORT(),0)
+
 
 if __name__ == "__main__":
-    # versionController = threading.Thread(target=executeController())
-    # versionController.start()
-    # broadcastSender = threading.Thread(target=broadcast())
-    # broadcastSender.start()
-    executeController()
+    starting = True;
+    controller = executeController()
     print("started controller")
-    receive()
-    broadcast()
+    receiver = receive()
+    broadcaster = broadcast()
     print("started multicast sender")
+    # Aqui podemos poner el hilo principal de ejecucion
     while True:
-        pass
+        if(controller.server.getServerID() and controller.server.getStartingValue()):
+            print(controller.server.getServerID())
+            # Debo enviar un obj con: id del mensaje - 0, id del server, ip y puerto
+            message = IdMessage(controller.server.getServerID(),controller.server.getHOST(),controller.server.getPORT())
+            broadcaster.setMessage(message)
+            broadcaster.canSend()
+            controller.server.setRunning()
+        if(receiver.getReceived()):
+            message = receiver.getMessage()
+            if(message['code'] == 0):
+                controller.server.serversTable[message['id']] = message['ip'] + ':' + str(message['port'])
+                print(controller.server.serversTable)
