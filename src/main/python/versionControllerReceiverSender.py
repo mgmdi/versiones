@@ -113,7 +113,7 @@ class VersionController(object):
         PORT = int(config.readline().strip('\n'))          # The same port as used by the server
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
-            data = s.recv(1024)
+            data = s.recv(4096)
             self.id = data.decode()
         print('Received', repr(data))
 
@@ -122,7 +122,9 @@ class broadcast(Thread):
     def __init__(self):
         Thread.__init__(self)
         self.daemon = True
+        self.response = None
         self.message = None
+        self.replied = False
         self.send = False
         self.start()
 
@@ -134,6 +136,18 @@ class broadcast(Thread):
 
     def setMessage(self, msg):
         self.message = pickle.dumps(msg)
+    
+    def getResponse(self):
+        return self.response
+
+    def clearResponse(self):
+        self.response = None
+    
+    def getReplied(self):
+        return self.replied
+
+    def setReplied(self, value):
+        self.replied = value
 
     def run(self):
         # message = b'very important data'
@@ -166,7 +180,17 @@ class broadcast(Thread):
                     while True:
                         print('waiting to receive')
                         try:
-                            data, server = sock.recvfrom(16)
+                            data, server = sock.recvfrom(4096)
+                            data = pickle.loads(data)
+                            if(data.code == 0):
+                                self.response = {
+                                                'code': data.code,
+                                                'id': data.id,
+                                                'ip': data.ip,
+                                                'port': data.port
+                                                }
+                            self.setReplied(True)
+                                # Si recibo con un cod 0, solo lo guardo en la tabla
                         except socket.timeout:
                             print('timed out, no more responses')
                             self.cantSend()
@@ -185,19 +209,25 @@ class receive(Thread):
     def __init__(self):
         Thread.__init__(self)
         self.daemon = True
-        self.receivedMsg = {}
+        self.serverInfo = None
         self.received = False
+        self.receivedMsg = None
         self.start()
 
     def getMessage(self):
-        self.received = False
         return self.receivedMsg
 
-    def cleanMessage(self):
-        self.receivedMsg = {}
+    def setServerInfo(self, id, ip, port):
+        self.serverInfo = IdMessage(id, ip, port)
+
+    def clearMessage(self):
+        self.receivedMsg = None
 
     def getReceived(self):
         return self.received
+
+    def setReceived(self, value):
+        self.received = value
 
     def run(self):
         multicast_group = '224.10.10.10'
@@ -212,8 +242,6 @@ class receive(Thread):
         server_address = ('', 10000)
         sock.bind(server_address)
 
-        # Tell the operating system to add the socket to
-        # the multicast group on all interfaces.
         group = socket.inet_aton(multicast_group)
         mreq = struct.pack('4sL', group, socket.INADDR_ANY)
         sock.setsockopt(
@@ -224,7 +252,7 @@ class receive(Thread):
         # Receive/respond loop
         while True:
             print('\nwaiting to receive message')
-            data, address = sock.recvfrom(1024)
+            data, address = sock.recvfrom(4096)
 
             print('received {} bytes from {}'.format(
                 len(data), address))
@@ -237,9 +265,15 @@ class receive(Thread):
                     'ip': data.ip,
                     'port': data.port
                 }
-            self.received = True
-            print('sending acknowledgement to', address)
-            sock.sendto(b'ack', address)
+                print('sending server info to', address)
+                # Si en el receive recibo un codigo 0 => respondo con la info del server
+                sock.sendto(pickle.dumps(self.serverInfo), address)
+            else:
+                print('sending acknowledgement to', address)
+                sock.sendto(b'ack', address)
+            self.setReceived(True)
+            #self.received = True
+            
 
 class IdMessage:
     def __init__(self, id, ip, port):
@@ -264,23 +298,41 @@ class executeController(Thread):
 
 
 if __name__ == "__main__":
-    starting = True;
     controller = executeController()
     print("started controller")
     receiver = receive()
     broadcaster = broadcast()
     print("started multicast sender")
-    # Aqui podemos poner el hilo principal de ejecucion
+    # si soy coordinador => activo el hilo de ejecucion de coordinador que iniciara aca
+    # Aqui podemos poner el hilo principal de ejecucion => es el que controla la ejecucion
     while True:
         if(controller.server.getServerID() and controller.server.getStartingValue()):
             print(controller.server.getServerID())
             # Debo enviar un obj con: id del mensaje - 0, id del server, ip y puerto
-            message = IdMessage(controller.server.getServerID(),controller.server.getHOST(),controller.server.getPORT())
+            # Set server info
+            serverID = controller.server.getServerID()
+            serverHOST = controller.server.getHOST()
+            serverPORT = controller.server.getPORT()
+            receiver.setServerInfo(serverID,serverHOST,serverPORT)
+            message = IdMessage(serverID,serverHOST,serverPORT)
             broadcaster.setMessage(message)
             broadcaster.canSend()
+            # agregar valor running para saber si puedo hacer una eleccion 
             controller.server.setRunning()
+        # Caso cuando recibo un id
         if(receiver.getReceived()):
             message = receiver.getMessage()
             if(message['code'] == 0):
                 controller.server.serversTable[message['id']] = message['ip'] + ':' + str(message['port'])
                 print(controller.server.serversTable)
+                receiver.setReceived(False)
+                receiver.clearMessage()
+        # Caso cuando me responden mi broadcast con un id (unicast)
+        if(broadcaster.getReplied()):
+            response = broadcaster.getResponse()
+            if(message['code'] == 0):
+                controller.server.serversTable[message['id']] = message['ip'] + ':' + str(message['port'])
+                print(controller.server.serversTable)
+                broadcaster.setReplied(False)
+                broadcaster.clearResponse()
+        
