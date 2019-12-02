@@ -330,7 +330,7 @@ if __name__ == "__main__":
         # Caso cuando me responden mi broadcast con un id (unicast)
         if(broadcaster.getReplied()):
             response = broadcaster.getResponse()
-            if(message['code'] == 0):
+            if(response['code'] == 0):
                 controller.server.serversTable[message['id']] = message['ip'] + ':' + str(message['port'])
                 print(controller.server.serversTable)
                 broadcaster.setReplied(False)
