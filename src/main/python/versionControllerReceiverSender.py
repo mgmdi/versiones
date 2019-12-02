@@ -124,7 +124,7 @@ class broadcast(Thread):
         self.daemon = True
         self.response = None
         self.message = None
-        self.replied = False
+        self.messageQueue = []
         self.send = False
         self.start()
 
@@ -143,11 +143,16 @@ class broadcast(Thread):
     def clearResponse(self):
         self.response = None
     
-    def getReplied(self):
-        return self.replied
+    def getQueuedMessage(self):
+        if(len(self.messageQueue) > 0):
+            return self.messageQueue.pop(0)
+        return None
 
-    def setReplied(self, value):
-        self.replied = value
+    def theresMessage(self):
+        if(len(self.messageQueue) > 0):
+            return True
+        return False
+
 
     def run(self):
         # message = b'very important data'
@@ -158,8 +163,7 @@ class broadcast(Thread):
 
         # Set a timeout so the socket does not block
         # indefinitely when trying to receive data.
-        sock.settimeout(0.6)
-
+        sock.settimeout(0.8)
         # Set the time-to-live for messages to 1 so they do not
         # go past the local network segment.
         ttl = struct.pack('b', 1)
@@ -189,7 +193,8 @@ class broadcast(Thread):
                                                 'ip': data.ip,
                                                 'port': data.port
                                                 }
-                            self.setReplied(True)
+                            self.messageQueue.append(self.response)
+                            self.clearResponse()
                                 # Si recibo con un cod 0, solo lo guardo en la tabla
                         except socket.timeout:
                             print('timed out, no more responses')
@@ -212,6 +217,7 @@ class receive(Thread):
         self.serverInfo = None
         self.received = False
         self.receivedMsg = None
+        self.messageQueue = []
         self.start()
 
     def getMessage(self):
@@ -223,11 +229,15 @@ class receive(Thread):
     def clearMessage(self):
         self.receivedMsg = None
 
-    def getReceived(self):
-        return self.received
+    def getQueuedMessage(self):
+        if(len(self.messageQueue) > 0):
+            return self.messageQueue.pop(0)
+        return None
 
-    def setReceived(self, value):
-        self.received = value
+    def theresMessage(self):
+        if(len(self.messageQueue) > 0):
+            return True
+        return False
 
     def run(self):
         multicast_group = '224.10.10.10'
@@ -238,10 +248,8 @@ class receive(Thread):
 
         # Reusa el address para que sea todos contra todos
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
         server_address = ('', 10000)
         sock.bind(server_address)
-
         group = socket.inet_aton(multicast_group)
         mreq = struct.pack('4sL', group, socket.INADDR_ANY)
         sock.setsockopt(
@@ -258,7 +266,7 @@ class receive(Thread):
                 len(data), address))
             data = pickle.loads(data)
             print(data)
-            if(data.code == 0):
+            if(int(data.code) == 0):
                 self.receivedMsg = {
                     'code': data.code,
                     'id': data.id,
@@ -266,13 +274,15 @@ class receive(Thread):
                     'port': data.port
                 }
                 print('sending server info to', address)
+                self.messageQueue.append(self.receivedMsg)
+                self.clearMessage()
                 # Si en el receive recibo un codigo 0 => respondo con la info del server
                 sock.sendto(pickle.dumps(self.serverInfo), address)
             else:
                 print('sending acknowledgement to', address)
                 sock.sendto(b'ack', address)
-            self.setReceived(True)
-            #self.received = True
+        
+            
             
 
 class IdMessage:
@@ -320,19 +330,16 @@ if __name__ == "__main__":
             # agregar valor running para saber si puedo hacer una eleccion 
             controller.server.setRunning()
         # Caso cuando recibo un id
-        if(receiver.getReceived()):
-            message = receiver.getMessage()
+        if(receiver.theresMessage()):
+            message = receiver.getQueuedMessage()
             if(message['code'] == 0):
                 controller.server.serversTable[message['id']] = message['ip'] + ':' + str(message['port'])
                 print(controller.server.serversTable)
-                receiver.setReceived(False)
-                receiver.clearMessage()
         # Caso cuando me responden mi broadcast con un id (unicast)
-        if(broadcaster.getReplied()):
-            response = broadcaster.getResponse()
+        if(broadcaster.theresMessage()):
+            response = broadcaster.getQueuedMessage()
+            print(response)
             if(response['code'] == 0):
-                controller.server.serversTable[message['id']] = message['ip'] + ':' + str(message['port'])
+                controller.server.serversTable[response['id']] = response['ip'] + ':' + str(response['port'])
                 print(controller.server.serversTable)
-                broadcaster.setReplied(False)
-                broadcaster.clearResponse()
         
