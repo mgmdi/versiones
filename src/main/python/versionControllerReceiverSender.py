@@ -38,6 +38,9 @@ class VersionController(object):
     def getPORT(self):
         return self.port
 
+    def setPORT(self, value):
+        self.port = value
+
     # Services
     def commit(self, file, name, id):
         self.addFile(file, name, id)
@@ -79,7 +82,7 @@ class VersionController(object):
 
     def addFile(self, file, name, id):
         now = datetime.now()
-        date_time = now.strftime('%m/%d/%Y %H:%M:%S')
+        # date_time = now.strftime('%m/%d/%Y %H:%M:%S')
         timestamp = datetime.timestamp(now)
         fileInfo = {'file': file, 'timestamp': timestamp}
         index = name + ':' + id

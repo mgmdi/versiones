@@ -26,6 +26,7 @@ def run_server(server, ip, server_port, server_no):
                 with Pyro4.locateNS() as ns:
                     ns.register(f"server.test{server_no}", server_uri)
                 # Debo pedir mi id
+                server.setPORT(server_port)
                 server.getID()
                 print("Servers available.")
                 connected = True
