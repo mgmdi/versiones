@@ -78,9 +78,10 @@ class VersionController(object):
         return versions
 
     def addFile(self, file, name, id):
-        now = datetime.now()
-        date_time = now.strftime('%m/%d/%Y %H:%M:%S')
-        timestamp = datetime.timestamp(now)
+        #now = datetime.now()
+        #date_time = now.strftime('%m/%d/%Y %H:%M:%S')
+        #timestamp = datetime.timestamp(now)
+        timestamp = get_utc_time()
         fileInfo = {'file': file, 'timestamp': timestamp}
         index = name + ':' + id
         if index in self.files:
