@@ -126,11 +126,12 @@ class VersionController(object):
 
 
 class broadcast(Thread):
-    def __init__(self):
+    def __init__(self, server):
         Thread.__init__(self)
         self.daemon = True
         self.response = None
         self.message = None
+        self.server = server
         self.messageType = -1
         self.endTransmission = False
         self.messageQueue = []
@@ -206,28 +207,15 @@ class broadcast(Thread):
                             data, server = sock.recvfrom(4096)
                             data = pickle.loads(data)
                             if(data.code == 0):
-                                self.response = {
-                                                'code': data.code,
-                                                'id': data.id,
-                                                'ip': data.ip,
-                                                'port': data.port
-                                                }
+                                self.response = IdMessage(data.id,data.ip,data.port)
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
                             elif(data.code == 2):
-                                self.response = {
-                                                'code': data.code,
-                                                'id': data.id,
-                                                'ip': data.ip,
-                                                'port': data.port
-                                                }
+                                self.response = CoordMessage(data.id,data.ip,data.port)
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
                             elif(data.code == 3):
-                                self.response = {
-                                                'code': data.code,
-                                                'responseTo': data.responseTo
-                                                }
+                                self.response = ACKMessage(data.responseTo)
                                 print('ack to ' + str(data.responseTo))
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
@@ -256,11 +244,12 @@ class broadcast(Thread):
 
 class receive(Thread):
 
-    def __init__(self):
+    def __init__(self,server):
         Thread.__init__(self)
         self.daemon = True
         self.HOSTID = -1
         self.serverInfoMsg = None
+        self.server = server
         self.received = False
         self.receivedMsg = None
         self.messageType = -1
@@ -315,15 +304,12 @@ class receive(Thread):
             data = pickle.loads(data)
             print(data)
             if(data.code == 0):
-                self.receivedMsg = {
-                    'code': data.code,
-                    'id': data.id,
-                    'ip': data.ip,
-                    'port': data.port
-                }
+                self.receivedMsg = IdMessage(data.id,data.ip,data.port)
                 print('sending server info to', address)
                 self.messageQueue.append(self.receivedMsg)
                 self.clearMessage()
+                if(self.server.coord and self.server.coord['id'] == self.server.getServerID()):
+                    sock.sendto(pickle.dumps(CoordMessage(self.server.getServerID(),self.server.getHOST(),self.server.getPORT())), address)
                 # Si en el receive recibo un codigo 0 => respondo con la info del server
                 sock.sendto(pickle.dumps(self.serverInfoMsg), address)
             elif(data.code == 1):
@@ -398,10 +384,10 @@ class receiverProcesser(Thread):
         while True:
             if(self.receiver.theresMessage()):
                 message = self.receiver.getQueuedMessage()
-                if(message['code'] == 0):
-                    self.server.serversTable[message['id']] = message['ip'] + ':' + str(message['port'])
+                if(message.code == 0):
+                    self.server.serversTable[message.id] = message.ip + ':' + str(message.port)
                     print(self.server.serversTable)
-                elif(response['code'] == 2):
+                elif(response.code == 2):
                     print('received coord msg')
 
 class broadcasterProcesser(Thread):
@@ -420,13 +406,19 @@ class broadcasterProcesser(Thread):
                 response = self.broadcaster.getQueuedMessage()
                 print('estoy en el primer if')
                 print(response)
-                if(response['code'] == 0):
-                    self.server.serversTable[response['id']] = response['ip'] + ':' + str(response['port'])
+                if(response.code == 0):
+                    self.server.serversTable[response.id] = response.ip + ':' + str(response.port)
                     print(self.server.serversTable)
-                elif(response['code'] == 2):
+                elif(response.code == 2):
                     print('received coord msg, debo cambiar controller.server.coord')
-                elif(response['code'] == 3):
-                    print('ack response to ' + str(response['responseTo']))  
+                    self.server.coord = {
+                        'id': response.id,
+                        'ip': response.ip,
+                        'port': response.port
+                    }
+                    print('servercoord : ' + str(self.server.coord))
+                elif(response.code == 3):
+                    print('ack response to ' + str(response.responseTo))  
                     electionResponses += 1
                     # Debo contar este numero de responses
                     #TODO: Debo preguntar si termine la transmision del id para verificar si hay coordinador,
@@ -443,7 +435,15 @@ class broadcasterProcesser(Thread):
                         self.broadcaster.canSend()
                         print('inicio election')
                 elif(self.broadcaster.getEndTransmission()['messageType'] == 1):
+                    if(self.electionResponses == 0):
+                        self.server.coord = {
+                            'id': self.server.getServerID(),
+                            'ip': self.server.getHOST(),
+                            'port': self.server.getPORT()
+                        }
                     print('fin mensaje de eleccion, debo contar los ack')
+                    print('COORD')
+                    print(self.server.coord)
                 self.broadcaster.setEndTransmission(False)
             # Los casos de enviar mensajes dado un mensaje en especifico se manejan en receiver y broadcast
             # Los casos de hacer algun proc con el servidor se manejan en estos hilos
@@ -453,8 +453,8 @@ class broadcasterProcesser(Thread):
 if __name__ == "__main__":
     controller = executeController()
     print("started controller")
-    receiver = receive()
-    broadcaster = broadcast()
+    receiver = receive(controller.server)
+    broadcaster = broadcast(controller.server)
     print("started multicast sender")
     receiverProcesser = receiverProcesser(receiver,controller.server)
     broadcasterProcesser = broadcasterProcesser(broadcaster,controller.server)
