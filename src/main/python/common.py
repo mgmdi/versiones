@@ -1,6 +1,6 @@
 import netifaces as ni
 import Pyro4
-import datetime
+from datetime import datetime
 import time
 from urllib.request import urlopen
 
@@ -45,5 +45,5 @@ def get_utc_time():
     x = result_str.split(" ")
     x1 = x[0].split("-")
     date = x1[1] + "/" + x1[2] + "/" + x1[0] + " " + x[1]
-    timestamp = time.mktime(datetime.datetime.strptime(date, '%m/%d/%Y %H:%M:%S').timetuple())
+    timestamp = time.mktime(datetime.strptime(date, '%m/%d/%Y %H:%M:%S').timetuple())
     return timestamp
