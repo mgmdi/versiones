@@ -47,6 +47,10 @@ def execute():
     # Name server
     nameServer = NameServer()
     server_ip = get_ip_address()
+    config = str(server_ip) + "\n9090"
+    g = open("config.txt","w+")
+    g.write(config)
+    g.close()
     if server_ip!=None:
         idAssignation = Server(server_ip, 9090)
     else:
