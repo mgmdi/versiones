@@ -430,7 +430,7 @@ class receiverProcesser(Thread):
                         'ip':message.ip,
                         'port':message.port
                     }
-                    print('received coord msg')
+                    print('received coord msg!!!!!!!!!!!!!!!!!!!!!!!!!')
                 elif(message.code == 4):
                     # No hago nada porque ya tengo el heartbeat checker
                     print('received heartbeat')
@@ -465,7 +465,7 @@ class broadcasterProcesser(Thread):
                     print('servercoord : ' + str(self.server.coord))
                 elif(response.code == 3):
                     print('ack response to ' + str(response.responseTo))  
-                    electionResponses += 1
+                    self.electionResponses += 1
                     # Debo contar este numero de responses
                     #TODO: Debo preguntar si termine la transmision del id para verificar si hay coordinador,
                     # Si no hay => comienzo eleccion, seria broadcast => can send y el mensaje es de eleccion
@@ -534,8 +534,11 @@ class heartbeatChecker(Thread):
             pass
         if(self.server.coord['id'] != self.server.getServerID()):
             while True:
-                time.sleep(5)
-                if(not self.broadcaster.heartbeatReceived):
+                time.sleep(30)
+                print('waitinggg')
+                if(not self.receiver.heartbeatReceived):
+                    del self.server.serversTable[self.server.coord['id']] 
+                    self.server.coord = None
                     self.broadcaster.setMessage(ElectionMessage(self.server.getServerID()))
                     self.broadcaster.canSend()
                 else:
@@ -545,7 +548,7 @@ class replicate(Thread):
         Thread.__init__(self)
         self.daemon = True
         self.server = server
-        self.k =k
+        self.k = k
         self.message = message
         self.start()
 
