@@ -550,6 +550,7 @@ class heartbeatChecker(Thread):
                     self.broadcaster.canSend()
                 else:
                     self.receiver.heartbeatReceived = False
+                    
 class replicate(Thread):
     def __init__(self,server,k, message):
         Thread.__init__(self)
@@ -567,7 +568,27 @@ class replicate(Thread):
     
         # buscar servidor con id mayor a este usando el serversTable?
         idNext= self.server.getServerID() + 1
-        #self.server.serversTable
+        ipPortaux = self.server.serversTable[idNext]
+        ipPort = ipPortaux.split(':')
+        HOST = ipPort[0]
+        PORT = ipPort[1]
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_address = {HOST, int(PORT)}
+        sock.bind(server_address)
+        # Listen for incoming connections
+        sock.listen(1)
+
+        while True:
+
+            connection, client_address = sock.accept()
+            print('connection from', client_address)
+
+            # Receive the data in small chunks and retransmit it
+            while True:
+                data = connection.recv(16)
+                #aqui se replica
+                if data:
+                    connection.sendall(data)
         
 
 
