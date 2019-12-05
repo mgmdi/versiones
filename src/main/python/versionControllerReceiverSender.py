@@ -492,6 +492,26 @@ class heartbeatChecker(Thread):
                 self.broadcaster.setMessage(Heartbeat())
                 self.broadcaster.canSend()
 
+class replicate(Thread):
+    def __init__(self,server,k, message):
+        Thread.__init__(self)
+        self.daemon = True
+        self.server = server
+        self.k =k
+        self.message = message
+        self.start()
+
+    def run(self):
+        # pasa mensaje y disminuye k
+        self.k = self.k-1
+        while not self.server.coord:
+            pass
+    
+        # buscar servidor con id mayor a este usando el serversTable?
+        idNext= self.server.getServerID() + 1
+        #self.server.serversTable
+        
+
 
 if __name__ == "__main__":
     controller = executeController()
