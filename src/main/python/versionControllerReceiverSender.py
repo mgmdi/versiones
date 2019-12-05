@@ -23,6 +23,7 @@ class VersionController(object):
         self.serversTable = {}
         self.starting = True
         self.coord = None
+        self.lastReplicateServer = -1 # last server for k-replication
 
     def getStartingValue(self):
         return self.starting
@@ -124,6 +125,32 @@ class VersionController(object):
             self.id = data.decode()
         print('Received', repr(data))
 
+    def sendCommit(self, file, name, id):
+        while not self.coord:
+            pass
+
+        # Busca el siguiente servidor para iniciar la replicacion
+        upperBoundId = None
+        for serverId in serversTable:
+            if serverId>self.lastReplicateServer:
+                if upperBoundId:
+                    if serverId<upperBoundId:
+                        upperBoundId = serverId
+                else:
+                    upperBoundId = serverId
+
+        self.lastReplicateServer=upperBoundId
+        ipPortaux = self.serversTable[upperBoundId]
+        ipPort = ipPortaux.split(':')
+        HOST = ipPort[0]
+        PORT = ipPort[1]
+        data = {
+            'file': file,
+            'name': name,
+            'id': id
+        }
+        encoded_data = pickle.dumps(data)
+        
 
 class broadcast(Thread):
     def __init__(self, server):
