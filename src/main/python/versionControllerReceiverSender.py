@@ -439,7 +439,7 @@ class broadcasterProcesser(Thread):
     def __init__(self, broadcaster, server):
         Thread.__init__(self)
         self.electionResponses = 0
-        self.heartbeats = 0
+        self.heartbeats = []
         self.daemon = True
         self.broadcaster = broadcaster
         self.server = server
@@ -472,6 +472,7 @@ class broadcasterProcesser(Thread):
                     # en receive si recibo un mensaje de eleccion con un id menor lo ignoro
                 elif(response.code  == 4):
                     print('received heartbeat and el coord es: ' + str(self.server.coord))
+                    self.heartbeats.append(response.id)
             elif(self.broadcaster.getEndTransmission()['endTransmission']):
                 # Si termino la transmision y ya procese todos los mensajes
                 print('ELECTION RESPONSES: ' + str(self.electionResponses))
@@ -494,6 +495,12 @@ class broadcasterProcesser(Thread):
                     print('fin mensaje de eleccion, debo contar los ack')
                     print('COORD')
                     print(self.server.coord)
+                elif(self.broadcaster.getEndTransmission()['messageType'] == 4):
+                    if(len(self.heartbeats) < len(self.server.serversTable)):
+                        print('LEN MENOR')
+                        for key in self.server.serversTable:
+                            if(key not in self.heartbeats):
+                                del self.server.serversTable[key]
                 self.broadcaster.setEndTransmission(False)
             # Los casos de enviar mensajes dado un mensaje en especifico se manejan en receiver y broadcast
             # Los casos de hacer algun proc con el servidor se manejan en estos hilos
