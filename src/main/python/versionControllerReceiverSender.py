@@ -259,6 +259,8 @@ class receive(Thread):
         self.receivedMsg = None
         self.messageType = -1
         self.messageQueue = []
+        self.heartbeatReceived = False
+        self.electionMsgReceived = False
         self.start()
 
     def getMessage(self):
@@ -321,7 +323,17 @@ class receive(Thread):
                 if(data.id > self.HOSTID):
                     print('sending acknowledgement for election to', address)
                     sock.sendto(pickle.dumps(ACKMessage(1)), address)
+                    if(not self.electionMsgReceived):
+                        self.receivedMsg = ElectionMessage(data.id)
+                        self.messageQueue.append(self.receivedMsg)
+            elif(data.code == 2):
+                self.electionMsgReceived = False
+                self.receivedMsg = CoordMessage(data.id,data.ip,data.port)
+                self.messageQueue.append(self.receivedMsg)
             elif(data.code == 4):
+                self.heartbeatReceived = True
+                self.receivedMessage = Heartbeat()
+                self.messageQueue.append(self.receivedMessage)
                 sock.sendto(pickle.dumps(Heartbeat(self.server.getServerID())), address)
             else:
                 # Si recibo un mensaje de eleccion data.code == 3 => envio ack y ya
@@ -393,10 +405,11 @@ class executeController(Thread):
             print('im a normal server')
 
 class receiverProcesser(Thread):
-    def __init__(self, receiver, server):
+    def __init__(self, receiver, broadcaster, server):
         Thread.__init__(self)
         self.daemon = True
         self.receiver = receiver
+        self.broadcaster = broadcaster
         self.server = server
         self.start()
 
@@ -408,8 +421,19 @@ class receiverProcesser(Thread):
                 if(message.code == 0):
                     self.server.serversTable[message.id] = message.ip + ':' + str(message.port)
                     print(self.server.serversTable)
-                elif(response.code == 2):
+                elif(message.code == 1):
+                    self.broadcaster.setMessage(ElectionMessage(self.server.getServerID()))
+                    self.broadcaster.canSend()
+                elif(message.code == 2):
+                    self.server.coord = {
+                        'id':message.id,
+                        'ip':message.ip,
+                        'port':message.port
+                    }
                     print('received coord msg')
+                elif(message.code == 4):
+                    # No hago nada porque ya tengo el heartbeat checker
+                    print('received heartbeat')
 
 class broadcasterProcesser(Thread):
     def __init__(self, broadcaster, server):
@@ -465,6 +489,8 @@ class broadcasterProcesser(Thread):
                             'ip': self.server.getHOST(),
                             'port': self.server.getPORT()
                         }
+                        self.broadcaster.setMessage(CoordMessage(self.server.coord['id'],self.server.coord['ip'],self.server.coord['port']))
+                        self.broadcaster.canSend()
                     print('fin mensaje de eleccion, debo contar los ack')
                     print('COORD')
                     print(self.server.coord)
@@ -474,7 +500,7 @@ class broadcasterProcesser(Thread):
             # Hilos nuevos: broadcasterProcesser, receiverProcesser                
             
 
-class heartbeatChecker(Thread):
+class heartbeatSender(Thread):
     def __init__(self, broadcaster, server):
         Thread.__init__(self)
         self.daemon = True
@@ -488,10 +514,32 @@ class heartbeatChecker(Thread):
             pass
         if(self.server.coord['id'] == self.server.getServerID()):
             while True:
-                time.sleep(5)
+                time.sleep(3)
                 self.broadcaster.setMessage(Heartbeat())
                 self.broadcaster.canSend()
+                
 
+class heartbeatChecker(Thread):
+    def __init__(self, broadcaster,receiver, server):
+        Thread.__init__(self)
+        self.daemon = True
+        self.broadcaster = broadcaster
+        self.receiver = receiver
+        self.server = server
+        self.start()
+
+    def run(self):
+        # are you alive 
+        while not self.server.coord:
+            pass
+        if(self.server.coord['id'] != self.server.getServerID()):
+            while True:
+                time.sleep(5)
+                if(not self.broadcaster.heartbeatReceived):
+                    self.broadcaster.setMessage(ElectionMessage(self.server.getServerID()))
+                    self.broadcaster.canSend()
+                else:
+                    self.receiver.heartbeatReceived = False
 
 if __name__ == "__main__":
     controller = executeController()
@@ -499,9 +547,10 @@ if __name__ == "__main__":
     receiver = receive(controller.server)
     broadcaster = broadcast(controller.server)
     print("started multicast sender")
-    receiverProcesser = receiverProcesser(receiver,controller.server)
+    receiverProcesser = receiverProcesser(receiver,broadcaster,controller.server)
     broadcasterProcesser = broadcasterProcesser(broadcaster,controller.server)
-    heartbeatChecker = heartbeatChecker(broadcaster,controller.server)
+    heartbeatSender = heartbeatSender(broadcaster,controller.server)
+    heartbeatChecker = heartbeatChecker(broadcaster,receiver,controller.server)
     # si soy coordinador => activo el hilo de ejecucion de coordinador que iniciara aca
     while True:
         if(controller.server.getServerID() and controller.server.getStartingValue()):
