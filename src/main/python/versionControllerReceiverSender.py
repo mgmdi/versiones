@@ -221,6 +221,11 @@ class broadcast(Thread):
                                 self.clearResponse()
                                 # Con esto puedo contar los mensajes en el hilo principal
                                 # para saber que no soy coord => debo tener > 1
+                            elif(data.code == 4):
+                                self.response = Heartbeat(data.id)
+                                print('heartbeat de ' + str(data.id))
+                                self.messageQueue.append(self.response)
+                                self.clearResponse()
                         except socket.timeout: 
                             #TODO: Si messageType son 0 => ended Id transmission
                             # si coord == None => comienzo eleccion
@@ -316,6 +321,8 @@ class receive(Thread):
                 if(data.id > self.HOSTID):
                     print('sending acknowledgement for election to', address)
                     sock.sendto(pickle.dumps(ACKMessage(1)), address)
+            elif(data.code == 4):
+                sock.sendto(pickle.dumps(Heartbeat(self.server.getServerID())), address)
             else:
                 # Si recibo un mensaje de eleccion data.code == 3 => envio ack y ya
                 # si mi id es mayor lo ignoro ==> NO ENVIO ACK
@@ -360,6 +367,13 @@ class ACKMessage:
     def __repr__(self):
         return 'ack'
 
+class Heartbeat:
+    def __init__(self,id=None):
+        self.code = 4
+        self.id = id
+    def __repr__(self):
+        return 'ack'
+
 class executeController(Thread):
     def __init__(self):
         Thread.__init__(self)
@@ -368,8 +382,15 @@ class executeController(Thread):
         self.start()
 
     def run(self):
+        self.server.getID()
         self.ip = get_ip_address()
-        run_server(self.server, self.server.getHOST(), self.server.getPORT(),0)
+        while not self.server.coord:
+            pass
+        print(self.server.coord)
+        if(self.server.getServerID() == self.server.coord['id']):
+            run_coord(self.server, self.server.getHOST(), self.server.getPORT(),0)
+        else:
+            print('im a normal server')
 
 class receiverProcesser(Thread):
     def __init__(self, receiver, server):
@@ -394,6 +415,7 @@ class broadcasterProcesser(Thread):
     def __init__(self, broadcaster, server):
         Thread.__init__(self)
         self.electionResponses = 0
+        self.heartbeats = 0
         self.daemon = True
         self.broadcaster = broadcaster
         self.server = server
@@ -424,6 +446,8 @@ class broadcasterProcesser(Thread):
                     #TODO: Debo preguntar si termine la transmision del id para verificar si hay coordinador,
                     # Si no hay => comienzo eleccion, seria broadcast => can send y el mensaje es de eleccion
                     # en receive si recibo un mensaje de eleccion con un id menor lo ignoro
+                elif(response.code  == 4):
+                    print('received heartbeat and el coord es: ' + str(self.server.coord))
             elif(self.broadcaster.getEndTransmission()['endTransmission']):
                 # Si termino la transmision y ya procese todos los mensajes
                 print('ELECTION RESPONSES: ' + str(self.electionResponses))
@@ -450,6 +474,25 @@ class broadcasterProcesser(Thread):
             # Hilos nuevos: broadcasterProcesser, receiverProcesser                
             
 
+class heartbeatChecker(Thread):
+    def __init__(self, broadcaster, server):
+        Thread.__init__(self)
+        self.daemon = True
+        self.broadcaster = broadcaster
+        self.server = server
+        self.start()
+
+    def run(self):
+        # are you alive 
+        while not self.server.coord:
+            pass
+        if(self.server.coord['id'] == self.server.getServerID()):
+            while True:
+                time.sleep(5)
+                self.broadcaster.setMessage(Heartbeat())
+                self.broadcaster.canSend()
+
+
 if __name__ == "__main__":
     controller = executeController()
     print("started controller")
@@ -458,6 +501,7 @@ if __name__ == "__main__":
     print("started multicast sender")
     receiverProcesser = receiverProcesser(receiver,controller.server)
     broadcasterProcesser = broadcasterProcesser(broadcaster,controller.server)
+    heartbeatChecker = heartbeatChecker(broadcaster,controller.server)
     # si soy coordinador => activo el hilo de ejecucion de coordinador que iniciara aca
     while True:
         if(controller.server.getServerID() and controller.server.getStartingValue()):
