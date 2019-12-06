@@ -55,10 +55,12 @@ def get_utc_time():
     return timestamp
 
 
-def getNextReplicateServer(lastReplicateServer, serversTable):
+def getNextReplicateServer(lastReplicateServer, serversTable, coordId):
     # Find server for replication
     boundId = None
     for serverId in serversTable:
+        if serverId==coordId:
+            pass
         if serverId>lastReplicateServer:
             if boundId:
                 if serverId>boundId: # Upper bound
@@ -67,6 +69,8 @@ def getNextReplicateServer(lastReplicateServer, serversTable):
                 boundId = serverId
     
     if not boundId: # We have to restart list and get min
+        if serverId==coordId:
+            pass
         for serverId in serversTable:
             if serverId<lastReplicateServer:
                 if boundId:
