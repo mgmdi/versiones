@@ -125,22 +125,16 @@ class VersionController(object):
             self.id = data.decode()
         print('Received', repr(data))
 
-    def sendAction(self, file, name, id):
+    def sendCommit(self, file, name, id):
         while not self.coord:
             pass
 
-        # Busca el siguiente servidor para iniciar la replicacion
-        upperBoundId = None
-        for serverId in serversTable:
-            if serverId>self.lastReplicateServer:
-                if upperBoundId:
-                    if serverId<upperBoundId:
-                        upperBoundId = serverId
-                else:
-                    upperBoundId = serverId
+        nextReplicateServer = getNextReplicateServer(self.lastReplicateServer, self.serversTable)
+        
+        if self.coord['id']==self.id:
+            self.lastReplicateServer = nextReplicateServer
 
-        self.lastReplicateServer=upperBoundId
-        ipPortaux = self.serversTable[upperBoundId]
+        ipPortaux = self.serversTable[nextReplicateServer]
         ipPort = ipPortaux.split(':')
         HOST = ipPort[0]
         PORT = ipPort[1]

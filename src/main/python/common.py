@@ -53,3 +53,16 @@ def get_utc_time():
     date = x1[1] + "/" + x1[2] + "/" + x1[0] + " " + x[1]
     timestamp = time.mktime(datetime.strptime(date, '%m/%d/%Y %H:%M:%S').timetuple())
     return timestamp
+
+
+def getNextReplicateServer(lastReplicateServer, serversTable):
+    # Busca el siguiente servidor para iniciar la replicacion
+    upperBoundId = None
+    for serverId in serversTable:
+        if serverId>lastReplicateServer:
+            if upperBoundId:
+                if serverId<upperBoundId:
+                    upperBoundId = serverId
+            else:
+                upperBoundId = serverId
+    return upperBoundId
