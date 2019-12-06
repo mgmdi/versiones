@@ -397,7 +397,7 @@ class receive(Thread):
                 self.messageQueue.append(self.receivedMsg)
             elif(data.code == 4):
                 self.heartbeatReceived = True
-                self.receivedMessage = Heartbeat(table=data.table)
+                self.receivedMessage = Heartbeat(versionTable=data.versionTable, serversTable=data.serversTable)
                 self.messageQueue.append(self.receivedMessage)
                 sock.sendto(pickle.dumps(Heartbeat(id=self.server.getServerID())), address)
             else:
@@ -445,10 +445,11 @@ class ACKMessage:
         return 'ack'
 
 class Heartbeat:
-    def __init__(self, table=None, id=None):
+    def __init__(self, serversTable=None, versionTable=None, id=None):
         self.code = 4
         self.id = id
-        self.table = table
+        self.versionTable = versionTable
+        self.serversTable = serversTable
     def __repr__(self):
         return 'ack'
 
@@ -509,8 +510,9 @@ class receiverProcesser(Thread):
                     }
                     print('received coord msg!!!!!!!!!!!!!!!!!!!!!!!!!')
                 elif(message.code == 4):
-                    self.server.versionTable = message.table
-                    print("received heartbeat and table "+str(message.table))
+                    self.server.versionTable = message.versionTable
+                    self.server.serversTable = message.serversTable
+                    print("received heartbeat and \nversion table "+str(message.versionTable)+"\nservers table "+str(message.serversTable))
 
 class broadcasterProcesser(Thread):
     def __init__(self, broadcaster, server):
