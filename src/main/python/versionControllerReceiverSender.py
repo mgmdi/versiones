@@ -162,7 +162,30 @@ class VersionController(object):
 
     def sendUpdate(self, name, id, version=None):
         # version => checkout, else update
-        pass
+        # Buscar la última version del archivo
+        recentVersion = version
+        if not version: # Update
+            recentVersion = 0
+            for server in self.versionTable: # dict['ip:puerto']={'file1':[1,2,3,4],..}
+                if name in self.versionTable[server]:
+                    for timestamp in self.versionTable[server][name]:
+                        if int(timestamp) >= recentVersion:
+                            recentVersion = int(timestamp)
+
+        # Buscar los que tienen la version reciente
+        servers = []
+        for server in self.versionTable:
+            if name in self.versionTable[server]:
+                for timestamp in self.versionTable[server][name]:
+                    if int(timestamp) == recentVersion:
+                        servers.append(server)
+
+        if not version:
+            pass # TODO: send update
+        else:
+            pass # TODO: send checkout
+        
+        # Recibir primera respuesta y retornar esa al cliente => como en checkout
 
 class broadcast(Thread):
     def __init__(self, server):
