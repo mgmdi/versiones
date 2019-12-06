@@ -77,6 +77,19 @@ class VersionController(object):
         print(versions)
         return versions
 
+    def getTimeVersions(self,name,id):
+                # Returns array: [datetime]
+        versions = []
+        key = name + ':' + id
+        if(key in self.files):
+            for version in self.files[key]:
+                date = datetime.fromtimestamp(version['timestamp'])
+                date_time = date.strftime('%m/%d/%Y %H:%M:%S')
+                versions.append(date_time)
+        print(versions)
+        return versions
+        
+
     def addFile(self, file, name, id):
         #now = datetime.now()
         #date_time = now.strftime('%m/%d/%Y %H:%M:%S')

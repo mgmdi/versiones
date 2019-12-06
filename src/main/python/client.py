@@ -15,18 +15,20 @@ class Client:
 class mywindow(QtWidgets.QMainWindow):
 
     client_ip = get_ip_address()
-
+    servers = ""
     #servers = find_servers()
-    servers = "servers"
+    #servers = "servers"
 
-    array = ["File 1","File 2","File 3","File 4","File 5"]
+    array = ["requirements.txt","File 2","File 3","File 4","File 5"]
 
-    array2 = [["11/24/2019 22:12:29"],["11/24/2019 22:12:29"],["11/24/2019 22:12:29"],["11/24/2019 22:12:29"],["11/24/2019 22:12:29"]]
- 
-    def __init__(self):
+    #versiones_arreglo = [["11/24/2019 22:12:29"],["11/24/2019 22:12:29"],["11/24/2019 22:12:29"],["11/24/2019 22:12:29"],["11/24/2019 22:12:29"]]
+
+    def __init__(self,servers):
      
         super(mywindow, self).__init__()
-     
+
+        self.servers = servers
+        
         self.ui = Ui_MainWindow()
         
         self.ui.setupUi(self)
@@ -51,21 +53,22 @@ class mywindow(QtWidgets.QMainWindow):
 
     def btnCommit(self):
         self.ui.label_5.setText("Commit del archivo: " + self.ui.lineEdit.text())
-        # PORFA REVISA LA FUNCION COMMIT A VER
+        commit(self.ui.lineEdit.text(),self.client_ip,self.servers)
 
     def selectionChange(self):
         self.ui.label_2.setText("Selecciono la opcion: " + self.ui.comboBox.currentText())
         self.ui.comboBox_2.clear()
         #self.ui.comboBox_2.addItems(self.array2[int(self.ui.comboBox.currentText())-1])
-        versiones = servers.getVersions(self.ui.comboBox.currentText(),self.client_ip)
-        versiones = versiones.keys()
-        versiones_arreglo = []
-        for v in versiones:
-            versiones_arreglo.append(v)
-        self.ui.comboBox_2.addItems(versiones_arreglo)
+        versiones = self.servers.getTimeVersions(self.ui.comboBox.currentText(),self.client_ip)
+        print("VERSIONES:")
+        print(versiones)
+        #versiones = versiones.keys()
+        #versiones_arreglo = []
+        #for v in versiones:
+        #    versiones_arreglo.append(v)
+        self.ui.comboBox_2.addItems(versiones)
  
 def find_servers():
-
     server = None
     with Pyro4.locateNS() as ns:
         for server, server_uri in ns.list(prefix="server.").items():
@@ -76,20 +79,20 @@ def find_servers():
     return server
 
 def update(file_name, ip,servers):
-    #servers.update(file_name, ip)
+    servers.update(file_name, ip)
     print("Update")
 
 def checkout(file_name,ip,date,servers):
-    #servers.checkout(file_name, ip, date)
+    servers.checkout(file_name, ip, date)
     print("Checkout")
 
-def commit(file_name,ip):
+def commit(file_name,ip,servers):
     versiones_dir = op.abspath(op.join(__file__, op.pardir, op.pardir, op.pardir, op.pardir))
-    file = open(op.join(versiones_dir, "requirements.txt"),'r')
-    file_ = open(op.join(versiones_dir, "test.txt"),'r')
-    servers.commit(file.read(), 'file', ip)
-    time.sleep(3.5)
-    servers.commit(file_.read(), 'file', ip)
+    file = open(op.join(versiones_dir, file_name),'r')
+    #file_ = open(op.join(versiones_dir, "test.txt"),'r')
+    servers.commit(file.read(), file_name, ip)
+    #time.sleep(3.5)
+    #servers.commit(file_.read(), 'file', ip)
 
 def main():
     ip = get_ip_address()
@@ -103,7 +106,8 @@ def main():
 
     app = QtWidgets.QApplication([])
      
-    application = mywindow()
+    servers = find_servers()
+    application = mywindow(servers)
      
     application.show()
      
