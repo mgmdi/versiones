@@ -15,9 +15,10 @@ import pickle
 @Pyro4.expose
 class VersionController(object):
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, k):
         self.host = host
         self.port = port
+        self.k = k
         self.files = {}
         self.id = None
         self.serversTable = {}
@@ -589,6 +590,7 @@ class broadcasterProcesser(Thread):
                                 self.server.heartbeats += 1
                                 if(self.server.heartbeats > 5):
                                     del self.server.serversTable[key]
+                                    calcPartitions(self.server.serversTable, self.server.coord['id'], self.server.k)
                             else:
                                 self.server.hearbeats = 0
                     self.heartbeats = []

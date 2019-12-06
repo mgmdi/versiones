@@ -60,23 +60,39 @@ def getNextReplicateServer(lastReplicateServer, serversTable, coordId):
     boundId = None
     for serverId in serversTable:
         if serverId==coordId:
-            pass
+            continue
         if serverId>lastReplicateServer:
             if boundId:
-                if serverId>boundId: # Upper bound
+                if serverId<boundId: # Lowest upper bound
                     boundId = serverId
             else:
                 boundId = serverId
     
     if not boundId: # We have to restart list and get min
-        if serverId==coordId:
-            pass
         for serverId in serversTable:
+            if serverId==coordId:
+                continue
             if serverId<lastReplicateServer:
                 if boundId:
                     if serverId<boundId: # Lower bound
                         boundId = serverId
                 else:
                     boundId = serverId
-
     return boundId
+
+def calcPartitions(serversTable, coordId, k):
+    partitionTable = {}
+    id = 0
+    k_aux = k + 1
+    for serverId in serversTable:
+        if serverId == coordId:
+            continue
+        partitionTable[id] = []
+        server = serverId
+        while k_aux!=0:
+            partitionTable[id].append(server)
+            server = getNextReplicateServer(serverId, serversTable, coordId)
+            k_aux -= 1
+        k_aux = k + 1
+        id += 1
+    return partitionTable
