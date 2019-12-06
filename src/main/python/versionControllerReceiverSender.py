@@ -128,11 +128,12 @@ class VersionController(object):
     def sendCommit(self, file, name, id):
         while not self.coord:
             pass
-
-        nextReplicateServer = getNextReplicateServer(self.lastReplicateServer, self.serversTable)
         
         if self.coord['id']==self.id:
+            nextReplicateServer = getNextReplicateServer(self.lastReplicateServer, self.serversTable)
             self.lastReplicateServer = nextReplicateServer
+        else:
+            nextReplicateServer = getNextReplicateServer(self.id, self.serversTable)
 
         ipPortaux = self.serversTable[nextReplicateServer]
         ipPort = ipPortaux.split(':')
