@@ -23,6 +23,7 @@ class VersionController(object):
         self.serversTable = {}
         self.starting = True
         self.coord = None
+        self.heartbeats = 0
 
     def getStartingValue(self):
         return self.starting
@@ -183,7 +184,7 @@ class broadcast(Thread):
 
         # Set a timeout so the socket does not block
         # indefinitely when trying to receive data.
-        sock.settimeout(0.8)
+        sock.settimeout(2)
         # Set the time-to-live for messages to 1 so they do not
         # go past the local network segment.
         ttl = struct.pack('b', 1)
@@ -268,7 +269,7 @@ class receive(Thread):
 
     def setServerInfo(self, id, ip, port):
         self.serverInfoMsg = IdMessage(id, ip, port)
-        self.HOSTID = id
+        self.HOSTID = int(id)
 
     def clearMessage(self):
         self.receivedMsg = None
@@ -320,7 +321,7 @@ class receive(Thread):
                 # Si en el receive recibo un codigo 0 => respondo con la info del server
                 sock.sendto(pickle.dumps(self.serverInfoMsg), address)
             elif(data.code == 1):
-                if(data.id > self.HOSTID):
+                if(int(data.id) > self.HOSTID):
                     print('sending acknowledgement for election to', address)
                     sock.sendto(pickle.dumps(ACKMessage(1)), address)
                     if(not self.electionMsgReceived):
@@ -386,6 +387,19 @@ class Heartbeat:
     def __repr__(self):
         return 'ack'
 
+class executeDaemon(Thread):
+    def __init__(self, server):
+        Thread.__init__(self)
+        self.server = server
+        self.daemon = True
+        self.start()
+
+    def run(self):
+        while True:
+            # print('daemon!!!: ' + str(self.server.coord))
+            if(self.server.coord and self.server.getServerID() == self.server.coord['id']):
+                run_coord(self.server, self.server.getHOST(), self.server.getPORT(),0)
+
 class executeController(Thread):
     def __init__(self):
         Thread.__init__(self)
@@ -399,10 +413,8 @@ class executeController(Thread):
         while not self.server.coord:
             pass
         print(self.server.coord)
-        if(self.server.getServerID() == self.server.coord['id']):
-            run_coord(self.server, self.server.getHOST(), self.server.getPORT(),0)
-        else:
-            print('im a normal server')
+        executeDaemon(self.server)
+
 
 class receiverProcesser(Thread):
     def __init__(self, receiver, broadcaster, server):
@@ -454,6 +466,7 @@ class broadcasterProcesser(Thread):
                 print(response)
                 if(response.code == 0):
                     self.server.serversTable[response.id] = response.ip + ':' + str(response.port)
+                    print('SERVERS TABLE')
                     print(self.server.serversTable)
                 elif(response.code == 2):
                     print('received coord msg, debo cambiar controller.server.coord')
@@ -490,17 +503,32 @@ class broadcasterProcesser(Thread):
                             'ip': self.server.getHOST(),
                             'port': self.server.getPORT()
                         }
+                        # run_coord(self.server, self.server.getHOST(), self.server.getPORT(),0)
                         self.broadcaster.setMessage(CoordMessage(self.server.coord['id'],self.server.coord['ip'],self.server.coord['port']))
                         self.broadcaster.canSend()
+                    else:
+                        self.electionResponses = 0
                     print('fin mensaje de eleccion, debo contar los ack')
                     print('COORD')
                     print(self.server.coord)
                 elif(self.broadcaster.getEndTransmission()['messageType'] == 4):
+                    print('process hearbeats!!!!!')
+                    print(self.server.serversTable.items())
+                    print(self.heartbeats)
                     if(len(self.heartbeats) < len(self.server.serversTable)):
                         print('LEN MENOR')
-                        for key in self.server.serversTable:
+                        serversTableKeys = list(self.server.serversTable)
+                        print(serversTableKeys)
+                        print(self.heartbeats)
+                        for key in serversTableKeys:
+                            print(key)
                             if(key not in self.heartbeats):
-                                del self.server.serversTable[key]
+                                self.server.heartbeats += 1
+                                if(self.server.heartbeats > 5):
+                                    del self.server.serversTable[key]
+                            else:
+                                self.server.hearbeats = 0
+                    self.heartbeats = []
                 self.broadcaster.setEndTransmission(False)
             # Los casos de enviar mensajes dado un mensaje en especifico se manejan en receiver y broadcast
             # Los casos de hacer algun proc con el servidor se manejan en estos hilos
@@ -519,12 +547,13 @@ class heartbeatSender(Thread):
         # are you alive 
         while not self.server.coord:
             pass
-        if(self.server.coord['id'] == self.server.getServerID()):
-            while True:
-                time.sleep(3)
-                self.broadcaster.setMessage(Heartbeat())
-                self.broadcaster.canSend()
-                
+        while True:
+                if(self.server.coord and self.server.coord['id'] == self.server.getServerID()):
+                    print('sending heartbeat')
+                    time.sleep(3)
+                    self.broadcaster.setMessage(Heartbeat())
+                    self.broadcaster.canSend()
+                    
 
 class heartbeatChecker(Thread):
     def __init__(self, broadcaster,receiver, server):
@@ -539,18 +568,20 @@ class heartbeatChecker(Thread):
         # are you alive 
         while not self.server.coord:
             pass
-        if(self.server.coord['id'] != self.server.getServerID()):
-            while True:
-                time.sleep(30)
-                print('waitinggg')
-                if(not self.receiver.heartbeatReceived):
-                    del self.server.serversTable[self.server.coord['id']] 
-                    self.server.coord = None
-                    self.broadcaster.setMessage(ElectionMessage(self.server.getServerID()))
-                    self.broadcaster.canSend()
-                else:
-                    self.receiver.heartbeatReceived = False
-                    
+        while True:
+                if(self.server.coord and self.server.coord['id'] != self.server.getServerID()):
+                    time.sleep(30)
+                    print('waitinggg')
+                    if(not self.receiver.heartbeatReceived and self.server.coord['id']):
+                        del self.server.serversTable[self.server.coord['id']] 
+                        self.server.coord['id'] = None
+                        self.broadcaster.messageQueue = []
+                        self.receiver.messageQueue = []
+                        self.broadcaster.setMessage(ElectionMessage(self.server.getServerID()))
+                        self.broadcaster.canSend()
+                    else:
+                        self.receiver.heartbeatReceived = False
+                        
 class replicate(Thread):
     def __init__(self,server,k, message):
         Thread.__init__(self)
