@@ -610,7 +610,6 @@ class heartbeatSender(Thread):
         # are you alive 
         while not self.server.coord:
             pass
-<<<<<<< HEAD
         while True:
                 if(self.server.coord and self.server.coord['id'] == self.server.getServerID()):
                     print('sending heartbeat')
@@ -618,14 +617,6 @@ class heartbeatSender(Thread):
                     self.broadcaster.setMessage(Heartbeat())
                     self.broadcaster.canSend()
                     
-=======
-        if(self.server.coord['id'] == self.server.getServerID()):
-            while True:
-                time.sleep(3)
-                self.broadcaster.setMessage(Heartbeat(table=self.server.versionTable))
-                self.broadcaster.canSend()
-                
->>>>>>> 81b9798d1ce2f960fb3dac0d64bdb4366eec4557
 
 class heartbeatChecker(Thread):
     def __init__(self, broadcaster,receiver, server):
