@@ -125,7 +125,7 @@ class VersionController(object):
             self.id = data.decode()
         print('Received', repr(data))
 
-    def sendCommit(self, file, name, id):
+    def sendAction(self, file, name, id):
         while not self.coord:
             pass
 
@@ -144,13 +144,25 @@ class VersionController(object):
         ipPort = ipPortaux.split(':')
         HOST = ipPort[0]
         PORT = ipPort[1]
-        data = {
-            'file': file,
-            'name': name,
-            'id': id
-        }
-        encoded_data = pickle.dumps(data)
-        
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((HOST, PORT))
+            data = {
+                'file': file,
+                'name': name,
+                'id': id
+            }
+            encoded_data = pickle.dumps(data)
+            s.sendall(encoded_data)
+            data = s.recv(1024)
+
+            # s.bind((HOST, int(PORT)))
+            # s.listen(1)
+            # while True:
+            #     conn, addr = s.accept()
+            #     with conn:
+            #         print('Connected by', addr)
+            #         conn.sendall(str(self.getID()).encode())
+
 
 class broadcast(Thread):
     def __init__(self, server):
@@ -603,7 +615,7 @@ class replicate(Thread):
         server_address = {HOST, int(PORT)}
         sock.bind(server_address)
         # Listen for incoming connections
-        sock.listen(1)
+        sock.listen(10)
 
         while True:
 
