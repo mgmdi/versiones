@@ -24,6 +24,7 @@ class VersionController(object):
         self.starting = True
         self.coord = None
         self.lastReplicateServer = -1 # last server for k-replication
+        self.versionTable = {} # dict['ip:puerto']={'file1':[1,2,3,4],..}
 
     def getStartingValue(self):
         return self.starting
@@ -158,6 +159,10 @@ class VersionController(object):
             #         print('Connected by', addr)
             #         conn.sendall(str(self.getID()).encode())
 
+
+    def sendUpdate(self, name, id, version=None):
+        # version => checkout, else update
+        pass
 
 class broadcast(Thread):
     def __init__(self, server):
@@ -337,7 +342,7 @@ class receive(Thread):
 
         # Receive/respond loop
         while True:
-            print('\nwaiting to receive message')
+            print('\nwaiting to receive message\n')
             data, address = sock.recvfrom(4096)
 
             print('received {} bytes from {}'.format(
@@ -366,9 +371,9 @@ class receive(Thread):
                 self.messageQueue.append(self.receivedMsg)
             elif(data.code == 4):
                 self.heartbeatReceived = True
-                self.receivedMessage = Heartbeat()
+                self.receivedMessage = Heartbeat(table=data.table)
                 self.messageQueue.append(self.receivedMessage)
-                sock.sendto(pickle.dumps(Heartbeat(self.server.getServerID())), address)
+                sock.sendto(pickle.dumps(Heartbeat(id=self.server.getServerID())), address)
             else:
                 # Si recibo un mensaje de eleccion data.code == 3 => envio ack y ya
                 # si mi id es mayor lo ignoro ==> NO ENVIO ACK
@@ -414,9 +419,10 @@ class ACKMessage:
         return 'ack'
 
 class Heartbeat:
-    def __init__(self,id=None):
+    def __init__(self, table=None, id=None):
         self.code = 4
         self.id = id
+        self.table = table
     def __repr__(self):
         return 'ack'
 
@@ -466,8 +472,8 @@ class receiverProcesser(Thread):
                     }
                     print('received coord msg!!!!!!!!!!!!!!!!!!!!!!!!!')
                 elif(message.code == 4):
-                    # No hago nada porque ya tengo el heartbeat checker
-                    print('received heartbeat')
+                    self.server.versionTable = message.table
+                    print("received heartbeat and table "+str(message.table))
 
 class broadcasterProcesser(Thread):
     def __init__(self, broadcaster, server):
@@ -484,7 +490,7 @@ class broadcasterProcesser(Thread):
         while True:
             if(self.broadcaster.theresMessage()):
                 response = self.broadcaster.getQueuedMessage()
-                print('estoy en el primer if')
+                # print('estoy en el primer if')
                 print(response)
                 if(response.code == 0):
                     self.server.serversTable[response.id] = response.ip + ':' + str(response.port)
@@ -556,7 +562,7 @@ class heartbeatSender(Thread):
         if(self.server.coord['id'] == self.server.getServerID()):
             while True:
                 time.sleep(3)
-                self.broadcaster.setMessage(Heartbeat())
+                self.broadcaster.setMessage(Heartbeat(table=self.server.versionTable))
                 self.broadcaster.canSend()
                 
 
