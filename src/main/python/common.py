@@ -1,6 +1,6 @@
 import netifaces as ni
 import Pyro4
-import datetime
+from datetime import datetime
 import time
 import socket
 from urllib.request import urlopen
@@ -51,5 +51,32 @@ def get_utc_time():
     x = result_str.split(" ")
     x1 = x[0].split("-")
     date = x1[1] + "/" + x1[2] + "/" + x1[0] + " " + x[1]
-    timestamp = time.mktime(datetime.datetime.strptime(date, '%m/%d/%Y %H:%M:%S').timetuple())
+    timestamp = time.mktime(datetime.strptime(date, '%m/%d/%Y %H:%M:%S').timetuple())
     return timestamp
+
+
+def getNextReplicateServer(lastReplicateServer, serversTable, coordId):
+    # Find server for replication
+    boundId = None
+    for serverId in serversTable:
+        if serverId==coordId:
+            pass
+        if serverId>lastReplicateServer:
+            if boundId:
+                if serverId>boundId: # Upper bound
+                    boundId = serverId
+            else:
+                boundId = serverId
+    
+    if not boundId: # We have to restart list and get min
+        if serverId==coordId:
+            pass
+        for serverId in serversTable:
+            if serverId<lastReplicateServer:
+                if boundId:
+                    if serverId<boundId: # Lower bound
+                        boundId = serverId
+                else:
+                    boundId = serverId
+
+    return boundId

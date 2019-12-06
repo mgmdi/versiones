@@ -24,6 +24,8 @@ class VersionController(object):
         self.starting = True
         self.coord = None
         self.heartbeats = 0
+        self.lastReplicateServer = -1 # last server for k-replication
+        self.versionTable = {} # dict['ip:puerto']={'file1':[1,2,3,4],..}
 
     def getStartingValue(self):
         return self.starting
@@ -125,6 +127,66 @@ class VersionController(object):
             self.id = data.decode()
         print('Received', repr(data))
 
+    def sendCommit(self, file, name, id):
+        while not self.coord:
+            pass
+        
+        if self.coord['id']==self.id:
+            nextReplicateServer = getNextReplicateServer(self.lastReplicateServer, self.serversTable)
+            self.lastReplicateServer = nextReplicateServer
+        else:
+            nextReplicateServer = getNextReplicateServer(self.id, self.serversTable)
+
+        ipPortaux = self.serversTable[nextReplicateServer]
+        ipPort = ipPortaux.split(':')
+        HOST = ipPort[0]
+        PORT = ipPort[1]
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((HOST, PORT))
+            data = {
+                'file': file,
+                'name': name,
+                'id': id
+            }
+            encoded_data = pickle.dumps(data)
+            s.sendall(encoded_data)
+            data = s.recv(1024)
+
+            # s.bind((HOST, int(PORT)))
+            # s.listen(1)
+            # while True:
+            #     conn, addr = s.accept()
+            #     with conn:
+            #         print('Connected by', addr)
+            #         conn.sendall(str(self.getID()).encode())
+
+
+    def sendUpdate(self, name, id, version=None):
+        # version => checkout, else update
+        # Buscar la última version del archivo
+        recentVersion = version
+        if not version: # Update
+            recentVersion = 0
+            for server in self.versionTable: # dict['ip:puerto']={'file1':[1,2,3,4],..}
+                if name in self.versionTable[server]:
+                    for timestamp in self.versionTable[server][name]:
+                        if int(timestamp) >= recentVersion:
+                            recentVersion = int(timestamp)
+
+        # Buscar los que tienen la version reciente
+        servers = []
+        for server in self.versionTable:
+            if name in self.versionTable[server]:
+                for timestamp in self.versionTable[server][name]:
+                    if int(timestamp) == recentVersion:
+                        servers.append(server)
+
+        if not version:
+            pass # TODO: send update
+        else:
+            pass # TODO: send checkout
+        
+        # Recibir primera respuesta y retornar esa al cliente => como en checkout
 
 class broadcast(Thread):
     def __init__(self, server):
@@ -304,7 +366,7 @@ class receive(Thread):
 
         # Receive/respond loop
         while True:
-            print('\nwaiting to receive message')
+            print('\nwaiting to receive message\n')
             data, address = sock.recvfrom(4096)
 
             print('received {} bytes from {}'.format(
@@ -333,9 +395,9 @@ class receive(Thread):
                 self.messageQueue.append(self.receivedMsg)
             elif(data.code == 4):
                 self.heartbeatReceived = True
-                self.receivedMessage = Heartbeat()
+                self.receivedMessage = Heartbeat(table=data.table)
                 self.messageQueue.append(self.receivedMessage)
-                sock.sendto(pickle.dumps(Heartbeat(self.server.getServerID())), address)
+                sock.sendto(pickle.dumps(Heartbeat(id=self.server.getServerID())), address)
             else:
                 # Si recibo un mensaje de eleccion data.code == 3 => envio ack y ya
                 # si mi id es mayor lo ignoro ==> NO ENVIO ACK
@@ -381,9 +443,10 @@ class ACKMessage:
         return 'ack'
 
 class Heartbeat:
-    def __init__(self,id=None):
+    def __init__(self, table=None, id=None):
         self.code = 4
         self.id = id
+        self.table = table
     def __repr__(self):
         return 'ack'
 
@@ -444,8 +507,8 @@ class receiverProcesser(Thread):
                     }
                     print('received coord msg!!!!!!!!!!!!!!!!!!!!!!!!!')
                 elif(message.code == 4):
-                    # No hago nada porque ya tengo el heartbeat checker
-                    print('received heartbeat')
+                    self.server.versionTable = message.table
+                    print("received heartbeat and table "+str(message.table))
 
 class broadcasterProcesser(Thread):
     def __init__(self, broadcaster, server):
@@ -462,7 +525,7 @@ class broadcasterProcesser(Thread):
         while True:
             if(self.broadcaster.theresMessage()):
                 response = self.broadcaster.getQueuedMessage()
-                print('estoy en el primer if')
+                # print('estoy en el primer if')
                 print(response)
                 if(response.code == 0):
                     self.server.serversTable[response.id] = response.ip + ':' + str(response.port)
@@ -547,6 +610,7 @@ class heartbeatSender(Thread):
         # are you alive 
         while not self.server.coord:
             pass
+<<<<<<< HEAD
         while True:
                 if(self.server.coord and self.server.coord['id'] == self.server.getServerID()):
                     print('sending heartbeat')
@@ -554,6 +618,14 @@ class heartbeatSender(Thread):
                     self.broadcaster.setMessage(Heartbeat())
                     self.broadcaster.canSend()
                     
+=======
+        if(self.server.coord['id'] == self.server.getServerID()):
+            while True:
+                time.sleep(3)
+                self.broadcaster.setMessage(Heartbeat(table=self.server.versionTable))
+                self.broadcaster.canSend()
+                
+>>>>>>> 81b9798d1ce2f960fb3dac0d64bdb4366eec4557
 
 class heartbeatChecker(Thread):
     def __init__(self, broadcaster,receiver, server):
@@ -607,7 +679,7 @@ class replicate(Thread):
         server_address = {HOST, int(PORT)}
         sock.bind(server_address)
         # Listen for incoming connections
-        sock.listen(1)
+        sock.listen(10)
 
         while True:
 
