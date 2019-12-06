@@ -22,6 +22,7 @@ class VersionController(object):
         self.files = {}
         self.id = None
         self.serversTable = {}
+        self.partitionTable = {} # dict[id]={0:[ids de servidores en esa particion],..}
         self.starting = True
         self.coord = None
         self.heartbeats = 0
@@ -589,8 +590,10 @@ class broadcasterProcesser(Thread):
                             if(key not in self.heartbeats):
                                 self.server.heartbeats += 1
                                 if(self.server.heartbeats > 5):
+                                    key_version = self.server.serversTable[key]
                                     del self.server.serversTable[key]
-                                    calcPartitions(self.server.serversTable, self.server.coord['id'], self.server.k)
+                                    del self.server.versionTable[key_version]
+                                    self.server.partitionTable = calcPartitions(self.server.serversTable, self.server.coord['id'], self.server.k)
                             else:
                                 self.server.hearbeats = 0
                     self.heartbeats = []
