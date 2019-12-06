@@ -56,13 +56,23 @@ def get_utc_time():
 
 
 def getNextReplicateServer(lastReplicateServer, serversTable):
-    # Busca el siguiente servidor para iniciar la replicacion
-    upperBoundId = None
+    # Find server for replication
+    boundId = None
     for serverId in serversTable:
         if serverId>lastReplicateServer:
-            if upperBoundId:
-                if serverId<upperBoundId:
-                    upperBoundId = serverId
+            if boundId:
+                if serverId>boundId: # Upper bound
+                    boundId = serverId
             else:
-                upperBoundId = serverId
-    return upperBoundId
+                boundId = serverId
+    
+    if not boundId: # We have to restart list and get min
+        for serverId in serversTable:
+            if serverId<lastReplicateServer:
+                if boundId:
+                    if serverId<boundId: # Lower bound
+                        boundId = serverId
+                else:
+                    boundId = serverId
+
+    return boundId
