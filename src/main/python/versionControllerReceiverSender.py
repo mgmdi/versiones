@@ -643,6 +643,8 @@ class heartbeatChecker(Thread):
                     time.sleep(30)
                     print('waitinggg')
                     if(not self.receiver.heartbeatReceived and self.server.coord['id']):
+                        print(self.server.coord)
+                        print(self.server.serversTable)
                         del self.server.serversTable[self.server.coord['id']] 
                         self.server.coord['id'] = None
                         self.broadcaster.messageQueue = []
@@ -765,10 +767,10 @@ if __name__ == "__main__":
     print("started controller")
     receiver = receive(controller.server)
     broadcaster = broadcast(controller.server)
-    time.sleep(3)
-    replicateReceiver(controller.server)
-    replicateSender(controller.server)
-    time.sleep(3)
+    #time.sleep(3)
+    #replicateReceiver(controller.server)
+    #replicateSender(controller.server)
+    #time.sleep(3)
     print("started multicast sender")
     receiverProcesser = receiverProcesser(receiver,broadcaster,controller.server)
     broadcasterProcesser = broadcasterProcesser(broadcaster,controller.server)
