@@ -529,12 +529,12 @@ class broadcastService(Thread):
                 try:
 
                     # Send data to the multicast group
-                    print('sending service {!r}'.format(self.message))
+                    print('sending SERVICE {!r}'.format(self.message))
                     sent = sock.sendto(self.message, multicast_group)
 
                     # Look for responses from all recipients
                     while True:
-                        print('waiting to receive service')
+                        print('waiting to receive SERVICE')
                         try:
                             data, server = sock.recvfrom(4096)
                             data = pickle.loads(data)
@@ -563,12 +563,12 @@ class broadcastService(Thread):
                             # Si messageType es de eleccion, se debe recibir el numero de acks correspondientes
                             # a los servidores con id menor a mi
                             # Para estar bien debo recibir mas de un ack(contando el mio), sino soy coord
-                            print('timed out, no more services responses')
+                            print('timed out, no more SERVICES responses')
                             self.setEndTransmission(True)
                             self.cantSend()
                             break
                         else:
-                            print('received service {!r} from {}'.format(
+                            print('received SERVICE {!r} from {}'.format(
                                 data, server))
 
                 finally:
@@ -632,10 +632,10 @@ class receiveService(Thread):
 
         # Receive/respond loop
         while True:
-            print('\nwaiting to receive service message\n')
+            print('\nwaiting to receive SERVICE message\n')
             data, address = sock.recvfrom(4096)
 
-            print('received service {} bytes from {}'.format(
+            print('received SERVICE {} bytes from {}'.format(
                 len(data), address))
             data = pickle.loads(data)
             print(data)
@@ -645,11 +645,11 @@ class receiveService(Thread):
                         # Find file
                         file = self.server.update(data.name, data.client)
                         self.receivedMsg = Update(client=data.client, name=data.name, file=file['file'], timestamp=file['date'])
-                        print('sending update of '+ data.name +' to ', address)
+                        print('sending UPDATE of '+ data.name +' to ', address)
                         sock.sendto(pickle.dumps(self.receivedMsg), address)
                     elif(data.code == 6): # Checkout
                         file = self.server.checkout(data.name, data.client, data.timestamp)
-                        print('sending checkout of '+ data.name +' at '+ data.time +' to ', address)
+                        print('sending CHECKOUT of '+ data.name +' at '+ data.time +' to ', address)
                         sock.sendto(pickle.dumps(Checkout(client=data.client, name=data.name, file=file['file'], timestamp=data.timestamp)), address)
                     elif(data.code == 7): # Commit
                         self.electionMsgReceived = False
