@@ -52,10 +52,28 @@ class VersionController(object):
         return self.coord
 
     # Services
-    def commit(self, file, name, id):
-        self.addFile(file, name, id)
-        print(self.files)
+    def commit(self, file, name, id): # For coord
+        totalServers = self.k + 1
+        lastReplicateServers = []
+        while totalServers>0:
+            # Search for next k + 1 servers
+            replicateServers = getReplicateServers(self.lastReplicateServer, 
+                self.serversTable, self.coord['id'], self.k, lastReplicateServers)
+            # Change k
+            replicateNo = len(replicateServers)
+            if replicateNo>1:
+                self.k = replicateNo - 1
+            else:
+                self.k = 1
+            # Set message and notify broadcaster
+            self.serviceBroadcast.setMessage(Update(client=id, name=name, ids=serversIds))
+            self.canSend()
+            # Receive,count and return if OK
+            lastReplicateServers = replicateServers
 
+    def commitServer(self, file, name, id, timestamp):
+        self.addFile(file, name, id, timestamp)
+        print(self.files)
 
     def checkout(self, name, id, time):
         version = {}
@@ -144,10 +162,7 @@ class VersionController(object):
         print(versions)
         return versions
 
-    def addFile(self, file, name, id):
-        now = datetime.now()
-        # date_time = now.strftime('%m/%d/%Y %H:%M:%S')
-        timestamp = datetime.timestamp(now)
+    def addFile(self, file, name, id, timestamp):
         fileInfo = {'file': file, 'timestamp': timestamp}
         index = name + ':' + id
         if index in self.files:
@@ -184,38 +199,38 @@ class VersionController(object):
             self.id = data.decode()
         print('Received', repr(data))
 
-    def sendCommit(self, file, name, id):
-        while not self.coord:
-            pass
+    # def sendCommit(self, file, name, id):
+    #     while not self.coord:
+    #         pass
         
-        if self.coord['id']==self.id:
-            nextReplicateServer = getNextReplicateServer(self.lastReplicateServer, self.serversTable)
-            self.lastReplicateServer = nextReplicateServer
-        else:
-            nextReplicateServer = getNextReplicateServer(self.id, self.serversTable)
+    #     if self.coord['id']==self.id:
+    #         nextReplicateServer = getNextReplicateServer(self.lastReplicateServer, self.serversTable)
+    #         self.lastReplicateServer = nextReplicateServer
+    #     else:
+    #         nextReplicateServer = getNextReplicateServer(self.id, self.serversTable)
 
-        ipPortaux = self.serversTable[nextReplicateServer]
-        ipPort = ipPortaux.split(':')
-        HOST = ipPort[0]
-        PORT = ipPort[1]
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((HOST, PORT))
-            data = {
-                'file': file,
-                'name': name,
-                'id': id
-            }
-            encoded_data = pickle.dumps(data)
-            s.sendall(encoded_data)
-            data = s.recv(1024)
+    #     ipPortaux = self.serversTable[nextReplicateServer]
+    #     ipPort = ipPortaux.split(':')
+    #     HOST = ipPort[0]
+    #     PORT = ipPort[1]
+    #     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    #         s.connect((HOST, PORT))
+    #         data = {
+    #             'file': file,
+    #             'name': name,
+    #             'id': id
+    #         }
+    #         encoded_data = pickle.dumps(data)
+    #         s.sendall(encoded_data)
+    #         data = s.recv(1024)
 
-            # s.bind((HOST, int(PORT)))
-            # s.listen(1)
-            # while True:
-            #     conn, addr = s.accept()
-            #     with conn:
-            #         print('Connected by', addr)
-            #         conn.sendall(str(self.getID()).encode())
+    #         s.bind((HOST, int(PORT)))
+    #         s.listen(1)
+    #         while True:
+    #             conn, addr = s.accept()
+    #             with conn:
+    #                 print('Connected by', addr)
+    #                 conn.sendall(str(self.getID()).encode())
 
 
     def getServersVersion(self, name, id, version=None):
@@ -698,11 +713,12 @@ class ACKMessage:
         return 'ack'
 
 class Heartbeat:
-    def __init__(self, serversTable=None, versionTable=None, id=None):
+    def __init__(self, serversTable=None, versionTable=None, id=None, k=None):
         self.code = 4
         self.id = id
         self.versionTable = versionTable
         self.serversTable = serversTable
+        self.k=k
     def __repr__(self):
         return 'Heartbeat:::: ' + str(self.code) + ' ' + str(self.id)
 
@@ -727,6 +743,26 @@ class Checkout:
         self.ids = ids
     def __repr__(self):
         return 'Checkout ' + self.name + ' from ' + self.client + ' on ' + self.timestamp
+
+class Commit:
+    def __init__(self, client, name, file=None, timestamp=None, ids=None):
+        self.code = 7
+        self.client = client
+        self.name = name
+        self.file = file
+        self.timestamp = timestamp
+        self.ids = ids
+    def __repr__(self):
+        return 'Commit ' + self.name + ' from ' + self.client + ' on ' + self.timestamp
+
+class ACKCommit:
+    def __init__(self, client, name, id):
+        self.code = 8
+        self.client = client
+        self.name = name
+        self.id = id
+    def __repr__(self):
+        return 'Committed ' + self.name + ' from ' + self.client + ' on server ' + self.id
 
 class executeDaemon(Thread):
     def __init__(self, server):
@@ -789,6 +825,7 @@ class receiverProcesser(Thread):
                 elif(message.code == 4):
                     self.server.versionTable = message.versionTable
                     self.server.serversTable = message.serversTable
+                    self.server.k = message.k
                     print("received heartbeat and \nversion table "+str(message.versionTable)+"\nservers table "+str(message.serversTable))
 
 class broadcasterProcesser(Thread):
@@ -885,129 +922,6 @@ class broadcasterProcesser(Thread):
             # Los casos de hacer algun proc con el servidor se manejan en estos hilos
             # Hilos nuevos: broadcasterProcesser, receiverProcesser                
 
-class receiverServiceProcesser(Thread):
-    def __init__(self, receiver, broadcaster, server):
-        Thread.__init__(self)
-        self.daemon = True
-        self.receiver = receiver
-        self.broadcaster = broadcaster
-        self.server = server
-        self.start()
-
-    def run(self):
-        # Caso cuando recibo mensajes: de coordinador, eleccion, o are you alive
-        while True:
-            if(self.receiver.theresMessage()):
-                message = self.receiver.getQueuedMessage()
-                if(message.code == 0):
-                    self.server.serversTable[message.id] = message.ip + ':' + str(message.port)
-                    print(self.server.serversTable)
-                elif(message.code == 1):
-                    self.broadcaster.setMessage(ElectionMessage(self.server.getServerID()))
-                    self.broadcaster.canSend()
-                elif(message.code == 2):
-                    self.server.coord = {
-                        'id':message.id,
-                        'ip':message.ip,
-                        'port':message.port
-                    }
-                    print('received coord msg!!!!!!!!!!!!!!!!!!!!!!!!!')
-                elif(message.code == 4):
-                    self.server.versionTable = message.versionTable
-                    self.server.serversTable = message.serversTable
-                    print("received heartbeat and \nversion table "+str(message.versionTable)+"\nservers table "+str(message.serversTable))
-
-class broadcasterServiceProcesser(Thread):
-    def __init__(self, broadcaster, server):
-        Thread.__init__(self)
-        self.electionResponses = 0
-        self.heartbeats = []
-        self.daemon = True
-        self.broadcaster = broadcaster
-        self.server = server
-        self.start()
-
-    def run(self):
-        # Caso cuando me responde al broadcast y/o termina el broadcast 
-        while True:
-            if(self.broadcaster.theresMessage()):
-                response = self.broadcaster.getQueuedMessage()
-                # print('estoy en el primer if')
-                print(response)
-                if(response.code == 0):
-                    self.server.serversTable[response.id] = response.ip + ':' + str(response.port)
-                    print('SERVERS TABLE')
-                    print(self.server.serversTable)
-                elif(response.code == 2):
-                    print('received coord msg, debo cambiar controller.server.coord')
-                    self.server.coord = {
-                        'id': response.id,
-                        'ip': response.ip,
-                        'port': response.port
-                    }
-                    print('servercoord : ' + str(self.server.coord))
-                elif(response.code == 3):
-                    print('ack response to ' + str(response.responseTo))  
-                    self.electionResponses += 1
-                    # Debo contar este numero de responses
-                    #TODO: Debo preguntar si termine la transmision del id para verificar si hay coordinador,
-                    # Si no hay => comienzo eleccion, seria broadcast => can send y el mensaje es de eleccion
-                    # en receive si recibo un mensaje de eleccion con un id menor lo ignoro
-                elif(response.code  == 4):
-                    print('received heartbeat and el coord es: ' + str(self.server.coord))
-                    self.heartbeats.append(response.id)
-            elif(self.broadcaster.getEndTransmission()['endTransmission']):
-                # Si termino la transmision y ya procese todos los mensajes
-                print('ELECTION RESPONSES: ' + str(self.electionResponses))
-                if(self.broadcaster.getEndTransmission()['messageType'] == 0):
-                    if(not self.server.coord):
-                        serverID = self.server.getServerID()
-                        message = ElectionMessage(serverID)
-                        self.broadcaster.setMessage(message)
-                        self.broadcaster.canSend()
-                        print('inicio election')
-                elif(self.broadcaster.getEndTransmission()['messageType'] == 1):
-                    if(self.electionResponses == 0):
-                        self.server.coord = {
-                            'id': self.server.getServerID(),
-                            'ip': self.server.getHOST(),
-                            'port': self.server.getPORT()
-                        }
-                        # run_coord(self.server, self.server.getHOST(), self.server.getPORT(),0)
-                        self.broadcaster.setMessage(CoordMessage(self.server.coord['id'],self.server.coord['ip'],self.server.coord['port']))
-                        self.broadcaster.canSend()
-                    else:
-                        self.electionResponses = 0
-                    print('fin mensaje de eleccion, debo contar los ack')
-                    print('COORD')
-                    print(self.server.coord)
-                elif(self.broadcaster.getEndTransmission()['messageType'] == 4):
-                    print('process hearbeats!!!!!')
-                    print(self.server.serversTable.items())
-                    print(self.heartbeats)
-                    if(len(self.heartbeats) < len(self.server.serversTable)):
-                        print('LEN MENOR')
-                        serversTableKeys = list(self.server.serversTable)
-                        print(serversTableKeys)
-                        print(self.heartbeats)
-                        for key in serversTableKeys:
-                            print(key)
-                            if(key not in self.heartbeats):
-                                self.server.heartbeats += 1
-                                if(self.server.heartbeats > 5):
-                                    # key_version = self.server.serversTable[key]
-                                    del self.server.serversTable[key]
-                                    del self.server.versionTable[key]
-                                    self.server.partitionTable = calcPartitions(self.server.serversTable, self.server.coord['id'], self.server.k)
-                            else:
-                                self.server.hearbeats = 0
-                    self.heartbeats = []
-                self.broadcaster.setEndTransmission(False)
-            # Los casos de enviar mensajes dado un mensaje en especifico se manejan en receiver y broadcast
-            # Los casos de hacer algun proc con el servidor se manejan en estos hilos
-            # Hilos nuevos: broadcasterProcesser, receiverProcesser                
-
-
 class heartbeatSender(Thread):
     def __init__(self, broadcaster, server):
         Thread.__init__(self)
@@ -1024,7 +938,7 @@ class heartbeatSender(Thread):
                 if(self.server.coord and self.server.coord['id'] == self.server.getServerID()):
                     print('sending heartbeat')
                     time.sleep(3)
-                    self.broadcaster.setMessage(Heartbeat(serversTable=self.server.serversTable, versionTable=self.server.versionTable))
+                    self.broadcaster.setMessage(Heartbeat(serversTable=self.server.serversTable, versionTable=self.server.versionTable, k=self.server.k))
                     self.broadcaster.canSend()
                     
 
@@ -1081,10 +995,10 @@ class replicateReceiver(Thread):
             pass
         
         if self.server.coord['id']==self.server.id:
-            nextReplicateServer = getNextReplicateServer(self.server.lastReplicateServer, self.server.serversTable, self.server.coord['id'])
+            nextReplicateServer = getNextServer(self.server.lastReplicateServer, self.server.serversTable, self.server.coord['id'])
             self.server.lastReplicateServer = nextReplicateServer
         else:
-            nextReplicateServer = getNextReplicateServer(self.id, self.serversTable)
+            nextReplicateServer = getNextServer(self.id, self.serversTable)
         
         print(self.server.serversTable[nextReplicateServer].split(':')[0])
         next_server_address = (str(self.server.serversTable[nextReplicateServer].split(':')[0]), 20001)

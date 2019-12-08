@@ -61,7 +61,7 @@ def get_utc_time():
     return timestamp
 
 
-def getNextReplicateServer(lastReplicateServer, serversTable, coordId, excluding=[]):
+def getNextServer(lastReplicateServer, serversTable, coordId, excluding=[]):
     # Find server for replication
     boundId = None
     for serverId in serversTable:
@@ -87,10 +87,9 @@ def getNextReplicateServer(lastReplicateServer, serversTable, coordId, excluding
     return boundId
 
 
-def getNextKServers(lastReplicateServer, serversTable, coordId, k):
-    excluding = []
+def getReplicateServers(lastReplicateServer, serversTable, coordId, k, excluding=[]):
     for i in range(k+1):
-        nextServer = getNextReplicateServer(lastReplicateServer, serversTable, coordId, excluding)
+        nextServer = getNextServer(lastReplicateServer, serversTable, coordId, excluding)
         if not nextServer: # We don't have more servers to replicate
             return excluding
         excluding.append(nextServer)
@@ -108,7 +107,7 @@ def calcPartitions(serversTable, coordId, k):
         server = serverId
         while k_aux!=0:
             partitionTable[id].append(server)
-            server = getNextReplicateServer(serverId, serversTable, coordId)
+            server = getNextServer(serverId, serversTable, coordId)
             k_aux -= 1
         k_aux = k + 1
         id += 1
