@@ -21,25 +21,31 @@ def get_ip_address():
         return None
     return str(ip)
 
-def setAvailablePORT(server,server_port, server_no):
+def setAvailablePORT(server,server_port):
     connected = False
+    port = server_port
+    s = socket.socket()
     while(not connected):
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                if(s.connect_ex(('localhost', port)) == 0):
-                    server.setPORT(server_port)
-                    connected = True
+            s.connect((server.getHOST(), port))
+            print('connectedd')
+            #connected = True
 
         except: # TODO: AVERIGUAR CUAL ES LA EXCEPCION PARA ABORTAR EN LAS OTRAS
-            server_port += 1
-            server_no += 1
+            print('PORTT')
+            print(port)
+            port += 1
+        finally:
+            server.setPORT(port)
+            s.close()
+            break
         
 def run_coord(server, ip, server_port, server_no):
     with Pyro4.Daemon(host=ip, port=server_port) as daemon:
         server_uri = daemon.register(server)
         with Pyro4.locateNS() as ns:
             ns.register(f"server.test{server_no}", server_uri)
-            server.setPORT(server_port)
+            #server.setPORT(server_port)
             print("Servers available.")
             daemon.requestLoop()
 
