@@ -27,7 +27,7 @@ class VersionController(object):
         self.coord = None
         self.heartbeats = 0
         self.lastReplicateServer = -1 # last server for k-replication
-        self.versionTable = {} # dict['ip:puerto']={'file1':[1,2,3,4],..}
+        self.versionTable = {} # dict[id]={'file1':[1,2,3,4],..}
 
     def getStartingValue(self):
         return self.starting
@@ -169,7 +169,7 @@ class VersionController(object):
         recentVersion = version
         if not version: # Update
             recentVersion = 0
-            for server in self.versionTable: # dict['ip:puerto']={'file1':[1,2,3,4],..}
+            for server in self.versionTable: # dict[id]={'file1':[1,2,3,4],..}
                 if name in self.versionTable[server]:
                     for timestamp in self.versionTable[server][name]:
                         if int(timestamp) >= recentVersion:
@@ -667,6 +667,23 @@ class Heartbeat:
     def __repr__(self):
         return 'ack'
 
+class Update:
+    def __init__(self, client, file):
+        self.code = 0
+        self.client = client
+        self.file = file
+    def __repr__(self):
+        return 'Update ' + self.file + ' from ' + self.client
+
+class Checkout:
+    def __init__(self, client, file, timestamp):
+        self.code = 1
+        self.client = client
+        self.file = file
+        self.timestamp = timestamp
+    def __repr__(self):
+        return 'Checkout ' + self.file + ' from ' + self.client + ' on ' + self.timestamp
+
 class executeDaemon(Thread):
     def __init__(self, server):
         Thread.__init__(self)
@@ -806,9 +823,9 @@ class broadcasterProcesser(Thread):
                             if(key not in self.heartbeats):
                                 self.server.heartbeats += 1
                                 if(self.server.heartbeats > 5):
-                                    key_version = self.server.serversTable[key]
+                                    # key_version = self.server.serversTable[key]
                                     del self.server.serversTable[key]
-                                    del self.server.versionTable[key_version]
+                                    del self.server.versionTable[key]
                                     self.server.partitionTable = calcPartitions(self.server.serversTable, self.server.coord['id'], self.server.k)
                             else:
                                 self.server.hearbeats = 0
@@ -928,9 +945,9 @@ class broadcasterServiceProcesser(Thread):
                             if(key not in self.heartbeats):
                                 self.server.heartbeats += 1
                                 if(self.server.heartbeats > 5):
-                                    key_version = self.server.serversTable[key]
+                                    # key_version = self.server.serversTable[key]
                                     del self.server.serversTable[key]
-                                    del self.server.versionTable[key_version]
+                                    del self.server.versionTable[key]
                                     self.server.partitionTable = calcPartitions(self.server.serversTable, self.server.coord['id'], self.server.k)
                             else:
                                 self.server.hearbeats = 0
