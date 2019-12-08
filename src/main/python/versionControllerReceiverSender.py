@@ -15,7 +15,7 @@ import pickle
 @Pyro4.expose
 class VersionController(object):
 
-    def __init__(self, host, port, k=None):
+    def __init__(self, host, port, k, broadcast):
         self.host = host
         self.port = port
         self.k = k
@@ -28,6 +28,7 @@ class VersionController(object):
         self.heartbeats = 0
         self.lastReplicateServer = -1 # last server for k-replication
         self.versionTable = {} # dict[id]={'file1':[1,2,3,4],..}
+        self.serviceBroadcast = broadcast
 
     def getStartingValue(self):
         return self.starting
@@ -407,12 +408,11 @@ class receive(Thread):
                 sock.sendto(pickle.dumps(ACKMessage(-1)), address)
         
 class broadcastService(Thread):
-    def __init__(self, server):
+    def __init__(self):
         Thread.__init__(self)
         self.daemon = True
         self.response = None
         self.message = None
-        self.server = server
         self.messageType = -1
         self.endTransmission = False
         self.messageQueue = []
@@ -483,30 +483,27 @@ class broadcastService(Thread):
 
                     # Look for responses from all recipients
                     while True:
-                        print('waiting to receive')
+                        print('waiting to receive (service)')
                         try:
                             data, server = sock.recvfrom(4096)
                             data = pickle.loads(data)
                             if(data.code == 0):
-                                self.response = IdMessage(data.id,data.ip,data.port)
+                                self.response = Update(data.client, data.name, data.file)
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
+                                break # First one is enough
                             elif(data.code == 2):
-                                self.response = CoordMessage(data.id,data.ip,data.port)
+                                self.response = Checkout(data.client, data.name, data.file, data.timestamp)
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
-                            elif(data.code == 3):
+                                break
+                            elif(data.code == 3): # ESTO PUEDE SERVIR PARAA COMMIT CON BROADCAST
                                 self.response = ACKMessage(data.responseTo)
                                 print('ack to ' + str(data.responseTo))
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
                                 # Con esto puedo contar los mensajes en el hilo principal
                                 # para saber que no soy coord => debo tener > 1
-                            elif(data.code == 4):
-                                self.response = Heartbeat(data.id)
-                                print('heartbeat de ' + str(data.id))
-                                self.messageQueue.append(self.response)
-                                self.clearResponse()
                         except socket.timeout: 
                             #TODO: Si messageType son 0 => ended Id transmission
                             # si coord == None => comienzo eleccion
@@ -530,12 +527,12 @@ class broadcastService(Thread):
 
 class receiveService(Thread):
 
-    def __init__(self,server):
+    def __init__(self, server):
         Thread.__init__(self)
         self.daemon = True
         self.HOSTID = -1
-        self.serverInfoMsg = None
         self.server = server
+        self.serverInfoMsg = None
         self.received = False
         self.receivedMsg = None
         self.messageType = -1
@@ -584,43 +581,33 @@ class receiveService(Thread):
 
         # Receive/respond loop
         while True:
-            print('\nwaiting to receive message\n')
+            print('\nwaiting to receive (service) message\n')
             data, address = sock.recvfrom(4096)
 
             print('received {} bytes from {}'.format(
                 len(data), address))
             data = pickle.loads(data)
             print(data)
-            if(data.code == 0):
-                self.receivedMsg = IdMessage(data.id,data.ip,data.port)
-                print('sending server info to', address)
-                self.messageQueue.append(self.receivedMsg)
-                self.clearMessage()
-                if(self.server.coord and self.server.coord['id'] == self.server.getServerID()):
-                    sock.sendto(pickle.dumps(CoordMessage(self.server.getServerID(),self.server.getHOST(),self.server.getPORT())), address)
-                # Si en el receive recibo un codigo 0 => respondo con la info del server
-                sock.sendto(pickle.dumps(self.serverInfoMsg), address)
-            elif(data.code == 1):
-                if(int(data.id) > self.HOSTID):
-                    print('sending acknowledgement for election to', address)
-                    sock.sendto(pickle.dumps(ACKMessage(1)), address)
-                    if(not self.electionMsgReceived):
-                        self.receivedMsg = ElectionMessage(data.id)
-                        self.messageQueue.append(self.receivedMsg)
-            elif(data.code == 2):
-                self.electionMsgReceived = False
-                self.receivedMsg = CoordMessage(data.id,data.ip,data.port)
-                self.messageQueue.append(self.receivedMsg)
-            elif(data.code == 4):
-                self.heartbeatReceived = True
-                self.receivedMessage = Heartbeat(versionTable=data.versionTable, serversTable=data.serversTable)
-                self.messageQueue.append(self.receivedMessage)
-                sock.sendto(pickle.dumps(Heartbeat(id=self.server.getServerID())), address)
-            else:
-                # Si recibo un mensaje de eleccion data.code == 3 => envio ack y ya
-                # si mi id es mayor lo ignoro ==> NO ENVIO ACK
-                print('sending acknowledgement to', address)
-                sock.sendto(pickle.dumps(ACKMessage(-1)), address)
+            if self.server.id in data.ids:
+                if(data.code == 0): # Update
+                    # Find file
+                    file = self.server.update(data.name, data.client)
+                    self.receivedMsg = Update(data.client, data.name, file=file['file'], timestamp=file['date'])
+                    print('sending update of '+ data.name +' to ', address)
+                    sock.sendto(pickle.dumps(self.receivedMsg), address)
+                elif(data.code == 1): # Checkout
+                    file = self.server.checkout(data.name, data.client, data.timestamp)
+                    print('sending checkout of '+ data.name +' at '+ data.time +' to ', address)
+                    sock.sendto(pickle.dumps(Update(data.client, data.name, file=file['file'], timestamp=data.timestamp)), address)
+                elif(data.code == 2): # Commit
+                    self.electionMsgReceived = False
+                    self.receivedMsg = CoordMessage(data.id,data.ip,data.port)
+                    self.messageQueue.append(self.receivedMsg)
+                else:
+                    # Si recibo un mensaje de eleccion data.code == 3 => envio ack y ya
+                    # si mi id es mayor lo ignoro ==> NO ENVIO ACK
+                    print('sending acknowledgement to', address)
+                    sock.sendto(pickle.dumps(ACKMessage(-1)), address)
             
 
 class IdMessage:
@@ -668,21 +655,26 @@ class Heartbeat:
         return 'ack'
 
 class Update:
-    def __init__(self, client, file):
+    def __init__(self, client, name, file=None, timestamp=None, ids=None):
         self.code = 0
         self.client = client
-        self.file = file
-    def __repr__(self):
-        return 'Update ' + self.file + ' from ' + self.client
-
-class Checkout:
-    def __init__(self, client, file, timestamp):
-        self.code = 1
-        self.client = client
+        self.name = name
         self.file = file
         self.timestamp = timestamp
+        self.ids = ids
     def __repr__(self):
-        return 'Checkout ' + self.file + ' from ' + self.client + ' on ' + self.timestamp
+        return 'Update ' + self.name + ' from ' + self.client
+
+class Checkout:
+    def __init__(self, client, name, file=None, timestamp=None, ids=None):
+        self.code = 1
+        self.client = client
+        self.name = name
+        self.file = file
+        self.timestamp = timestamp
+        self.ids = ids
+    def __repr__(self):
+        return 'Checkout ' + self.name + ' from ' + self.client + ' on ' + self.timestamp
 
 class executeDaemon(Thread):
     def __init__(self, server):
@@ -698,10 +690,10 @@ class executeDaemon(Thread):
                 run_coord(self.server, self.server.getHOST(), self.server.getPORT(),0)
 
 class executeController(Thread):
-    def __init__(self):
+    def __init__(self, k, broadcaster):
         Thread.__init__(self)
         self.daemon = True
-        self.server = VersionController(get_ip_address(), 9091)
+        self.server = VersionController(get_ip_address(), 9091, k, broadcaster)
         self.start()
 
     def run(self):
@@ -1114,7 +1106,10 @@ class replicateSender(Thread):
 
 
 if __name__ == "__main__":
-    controller = executeController()
+    serviceBroadcaster = broadcastService()
+    k = 1
+    controller = executeController(k, serviceBroadcaster)
+    serviceReceiver = receiveService(controller.server)
     print("started controller")
     receiver = receive(controller.server)
     broadcaster = broadcast(controller.server)
