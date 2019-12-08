@@ -15,12 +15,14 @@ import pickle
 @Pyro4.expose
 class VersionController(object):
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, k=None):
         self.host = host
         self.port = port
+        self.k = k
         self.files = {}
         self.id = None
         self.serversTable = {}
+        self.partitionTable = {} # dict[id]={0:[ids de servidores en esa particion],..}
         self.starting = True
         self.coord = None
         self.heartbeats = 0
@@ -395,7 +397,7 @@ class receive(Thread):
                 self.messageQueue.append(self.receivedMsg)
             elif(data.code == 4):
                 self.heartbeatReceived = True
-                self.receivedMessage = Heartbeat(table=data.table)
+                self.receivedMessage = Heartbeat(versionTable=data.versionTable, serversTable=data.serversTable)
                 self.messageQueue.append(self.receivedMessage)
                 sock.sendto(pickle.dumps(Heartbeat(id=self.server.getServerID())), address)
             else:
@@ -443,10 +445,11 @@ class ACKMessage:
         return 'ack'
 
 class Heartbeat:
-    def __init__(self, table=None, id=None):
+    def __init__(self, serversTable=None, versionTable=None, id=None):
         self.code = 4
         self.id = id
-        self.table = table
+        self.versionTable = versionTable
+        self.serversTable = serversTable
     def __repr__(self):
         return 'ack'
 
@@ -507,8 +510,9 @@ class receiverProcesser(Thread):
                     }
                     print('received coord msg!!!!!!!!!!!!!!!!!!!!!!!!!')
                 elif(message.code == 4):
-                    self.server.versionTable = message.table
-                    print("received heartbeat and table "+str(message.table))
+                    self.server.versionTable = message.versionTable
+                    self.server.serversTable = message.serversTable
+                    print("received heartbeat and \nversion table "+str(message.versionTable)+"\nservers table "+str(message.serversTable))
 
 class broadcasterProcesser(Thread):
     def __init__(self, broadcaster, server):
@@ -588,7 +592,10 @@ class broadcasterProcesser(Thread):
                             if(key not in self.heartbeats):
                                 self.server.heartbeats += 1
                                 if(self.server.heartbeats > 5):
+                                    key_version = self.server.serversTable[key]
                                     del self.server.serversTable[key]
+                                    del self.server.versionTable[key_version]
+                                    self.server.partitionTable = calcPartitions(self.server.serversTable, self.server.coord['id'], self.server.k)
                             else:
                                 self.server.hearbeats = 0
                     self.heartbeats = []
@@ -645,44 +652,111 @@ class heartbeatChecker(Thread):
                     else:
                         self.receiver.heartbeatReceived = False
                         
-class replicate(Thread):
-    def __init__(self,server,k, message):
+class replicateReceiver(Thread):
+    def __init__(self,server):
         Thread.__init__(self)
         self.daemon = True
         self.server = server
-        self.k = k
-        self.message = message
         self.start()
 
     def run(self):
-        # pasa mensaje y disminuye k
-        self.k = self.k-1
+
+        # Create a TCP/IP socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        newsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+
+        # Bind the socket to the port
+        server_address = (str(self.server.host), 20000)
+        print('Starting up on {} port {}'.format(*server_address))
+        sock.bind(server_address)
+        sock.listen(1)
+
         while not self.server.coord:
             pass
-    
-        # buscar servidor con id mayor a este usando el serversTable?
-        idNext= self.server.getServerID() + 1
-        ipPortaux = self.server.serversTable[idNext]
-        ipPort = ipPortaux.split(':')
-        HOST = ipPort[0]
-        PORT = ipPort[1]
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_address = {HOST, int(PORT)}
-        sock.bind(server_address)
+        
+        if self.server.coord['id']==self.server.id:
+            nextReplicateServer = getNextReplicateServer(self.server.lastReplicateServer, self.server.serversTable)
+            self.server.lastReplicateServer = nextReplicateServer
+        else:
+            nextReplicateServer = getNextReplicateServer(self.id, self.serversTable)
+        
+        print(nextReplicateServer.host())
+        next_server_address = (str(nextReplicateServer.host()), 20001)
+        newsocket.bind(next_server_address)
+                    
+
         # Listen for incoming connections
-        sock.listen(10)
 
         while True:
-
+            # Wait for a connection
+            print('waiting for a connection')
             connection, client_address = sock.accept()
-            print('connection from', client_address)
+            try:
+                print('connection from', client_address)
 
-            # Receive the data in small chunks and retransmit it
-            while True:
-                data = connection.recv(16)
-                #aqui se replica
-                if data:
-                    connection.sendall(data)
+                while True:
+                    data = connection.recv(4096)
+                    obj = pickle.loads(data)
+                    print(obj)
+                    time.sleep(10)
+
+                    print('sending {!r}'.format(data))
+                    encoded_data = pickle.dumps(data)
+                    newsocket.sendall(encoded_data)
+
+                    if data:
+                        connection.sendall(data)
+                    else:
+                        print('no data from', client_address)
+                        break
+
+            finally:
+                # Clean up the connection
+                print("Closing current connection")
+                connection.close()
+
+class replicateSender(Thread):
+    def __init__(self,server):
+        Thread.__init__(self)
+        self.daemon = True
+        self.server = server
+        self.start()
+
+    def run(self):
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        # Connect the socket to the port where the server is listening
+        server_address = (str(self.server.host), 20000)
+        #print('connecting to {} port {}'.format(*server_address))
+        sock.connect(server_address)
+
+        try:
+
+            # Send data
+            data = {
+                'file': "sirve",
+                'name': "vamos",
+                'id': "porfavor"
+            }
+
+            print('sending {!r}'.format(data))
+            encoded_data = pickle.dumps(data)
+            sock.sendall(encoded_data)
+
+            # Look for the response
+            amount_received = 0
+            amount_expected = len(encoded_data)
+
+            while amount_received < amount_expected:
+                data = sock.recv(100)
+                amount_received += len(encoded_data)
+                print('received {!r}'.format(encoded_data))
+
+        finally:
+            print('closing socket')
+            sock.close()
         
 
 
@@ -691,6 +765,10 @@ if __name__ == "__main__":
     print("started controller")
     receiver = receive(controller.server)
     broadcaster = broadcast(controller.server)
+    time.sleep(3)
+    replicateReceiver(controller.server)
+    replicateSender(controller.server)
+    time.sleep(3)
     print("started multicast sender")
     receiverProcesser = receiverProcesser(receiver,broadcaster,controller.server)
     broadcasterProcesser = broadcasterProcesser(broadcaster,controller.server)
