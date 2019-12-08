@@ -58,20 +58,74 @@ class VersionController(object):
 
 
     def checkout(self, name, id, time):
-        key = name + ':' + id
-        if(key in self.files):
-            for version in self.files[key]:
-                # print(version)
-                date_time_obj = datetime.strptime(time, '%m/%d/%Y %H:%M:%S')
-                stamp = datetime.timestamp(date_time_obj)
-                # print(stamp)
-                if(int(version['timestamp']) == int(stamp)):
-                    print(version)
-                    return version
-        return {}
+        version = {}
+        if self.coord['id']==self.id:
+            # Search for last commit in all servers
+            serversIds = self.getServersVersion(name, id, time)
+            # Set message and notify broadcaster
+            self.serviceBroadcast.setMessage(Checkout(client=id, name=name, timestamp=time, ids=serversIds))
+            self.canSend()
+            # Receive and return
+            timeout = time.time() + 30   # 30 sec from now
+            received = False
+            while not received:
+                if(self.serviceBroadcast.theresMessage()):
+                    for i in range(len(self.serviceBroadcast.messageQueue)):
+                        if self.serviceBroadcast.messageQueue[i]!=0:
+                            continue
+                        if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id and self.serviceBroadcast.messageQueue[i].timestamp==time:
+                            msg = self.serviceBroadcast.messageQueue.pop(i)
+                            recent_version['file'] = msg.file
+                            recent_version['date'] = msg.timestamp
+                            received = True
+                            break
+
+                if time.time() > timeout:
+                    recent_version['error']= 'timeout: no respose for update'
+                    break
+            
+        else:    
+            key = name + ':' + id
+            if(key in self.files):
+                for version in self.files[key]:
+                    # print(version)
+                    date_time_obj = datetime.strptime(time, '%m/%d/%Y %H:%M:%S')
+                    stamp = datetime.timestamp(date_time_obj)
+                    # print(stamp)
+                    if(int(version['timestamp']) == int(stamp)):
+                        print(version)
+                        return version
+        return version
 
     def update(self, name, id):
-        recent_version = self.getRecentVersion(name, id)
+        recent_version = {}
+        if self.coord['id']==self.id:
+            # Search for last commit in all servers
+            serversIds = self.getServersVersion(name, id)
+            # Set message and notify broadcaster
+            self.serviceBroadcast.setMessage(Update(client=id, name=name, ids=serversIds))
+            self.canSend()
+            # Receive and return
+            timeout = time.time() + 30   # 30 sec from now
+            received = False
+            while not received:
+                if(self.serviceBroadcast.theresMessage()):
+                    for i in range(len(self.serviceBroadcast.messageQueue)):
+                        if self.serviceBroadcast.messageQueue[i]!=0:
+                            continue
+                        if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id:
+                            msg = self.serviceBroadcast.messageQueue.pop(i)
+                            recent_version['file'] = msg.file
+                            recent_version['date'] = msg.timestamp
+                            received = True
+                            break
+
+                if time.time() > timeout:
+                    recent_version['error']= 'timeout: no respose for update'
+                    break
+
+        else:
+            recent_version = self.getRecentVersion(name, id)
         return recent_version
 
     def getVersions(self, name, id):
@@ -164,32 +218,28 @@ class VersionController(object):
             #         conn.sendall(str(self.getID()).encode())
 
 
-    def sendUpdate(self, name, id, version=None):
+    def getServersVersion(self, name, id, version=None):
         # version => checkout, else update
         # Buscar la última version del archivo
         recentVersion = version
         if not version: # Update
             recentVersion = 0
-            for server in self.versionTable: # dict[id]={'file1':[1,2,3,4],..}
-                if name in self.versionTable[server]:
-                    for timestamp in self.versionTable[server][name]:
+            for server in self.versionTable: # dict[id]={'user:file1':[1,2,3,4],..}
+                key = str(id) + name
+                if key in self.versionTable[server]:
+                    for timestamp in self.versionTable[server][key]:
                         if int(timestamp) >= recentVersion:
                             recentVersion = int(timestamp)
 
         # Buscar los que tienen la version reciente
         servers = []
         for server in self.versionTable:
-            if name in self.versionTable[server]:
-                for timestamp in self.versionTable[server][name]:
+            key = str(id) + name
+            if key in self.versionTable[server]:
+                for timestamp in self.versionTable[server][key]:
                     if int(timestamp) == recentVersion:
                         servers.append(server)
-
-        if not version:
-            pass # TODO: send update
-        else:
-            pass # TODO: send checkout
-        
-        # Recibir primera respuesta y retornar esa al cliente => como en checkout
+        return servers
 
 class broadcast(Thread):
     def __init__(self, server):
@@ -457,7 +507,7 @@ class broadcastService(Thread):
 
     def run(self):
         # message = b'very important data'
-        multicast_group = ('224.10.10.11', 10000)
+        multicast_group = ('224.11.11.11', 10000)
 
         # Create the datagram socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -478,26 +528,26 @@ class broadcastService(Thread):
                 try:
 
                     # Send data to the multicast group
-                    print('sending {!r}'.format(self.message))
+                    print('sending service {!r}'.format(self.message))
                     sent = sock.sendto(self.message, multicast_group)
 
                     # Look for responses from all recipients
                     while True:
-                        print('waiting to receive (service)')
+                        print('waiting to receive service')
                         try:
                             data, server = sock.recvfrom(4096)
                             data = pickle.loads(data)
-                            if(data.code == 0):
-                                self.response = Update(data.client, data.name, data.file)
+                            if(data.code == 5):
+                                self.response = Update(client=data.client, name=data.name, file=data.file, timestamp=data.timestamp)
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
                                 break # First one is enough
-                            elif(data.code == 2):
-                                self.response = Checkout(data.client, data.name, data.file, data.timestamp)
+                            elif(data.code == 6):
+                                self.response = Checkout(client=data.client, name=data.name, file=data.file, timestamp=data.timestamp)
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
                                 break
-                            elif(data.code == 3): # ESTO PUEDE SERVIR PARAA COMMIT CON BROADCAST
+                            elif(data.code == 7): # ESTO PUEDE SERVIR PARA COMMIT CON BROADCAST
                                 self.response = ACKMessage(data.responseTo)
                                 print('ack to ' + str(data.responseTo))
                                 self.messageQueue.append(self.response)
@@ -512,12 +562,12 @@ class broadcastService(Thread):
                             # Si messageType es de eleccion, se debe recibir el numero de acks correspondientes
                             # a los servidores con id menor a mi
                             # Para estar bien debo recibir mas de un ack(contando el mio), sino soy coord
-                            print('timed out, no more responses')
+                            print('timed out, no more services responses')
                             self.setEndTransmission(True)
                             self.cantSend()
                             break
                         else:
-                            print('received {!r} from {}'.format(
+                            print('received service {!r} from {}'.format(
                                 data, server))
 
                 finally:
@@ -562,7 +612,7 @@ class receiveService(Thread):
         return False
 
     def run(self):
-        multicast_group = '224.10.10.11'
+        multicast_group = '224.11.11.11'
         connected = False
 
         # Create the socket
@@ -581,33 +631,34 @@ class receiveService(Thread):
 
         # Receive/respond loop
         while True:
-            print('\nwaiting to receive (service) message\n')
+            print('\nwaiting to receive service message\n')
             data, address = sock.recvfrom(4096)
 
-            print('received {} bytes from {}'.format(
+            print('received service {} bytes from {}'.format(
                 len(data), address))
             data = pickle.loads(data)
             print(data)
-            if self.server.id in data.ids:
-                if(data.code == 0): # Update
-                    # Find file
-                    file = self.server.update(data.name, data.client)
-                    self.receivedMsg = Update(data.client, data.name, file=file['file'], timestamp=file['date'])
-                    print('sending update of '+ data.name +' to ', address)
-                    sock.sendto(pickle.dumps(self.receivedMsg), address)
-                elif(data.code == 1): # Checkout
-                    file = self.server.checkout(data.name, data.client, data.timestamp)
-                    print('sending checkout of '+ data.name +' at '+ data.time +' to ', address)
-                    sock.sendto(pickle.dumps(Update(data.client, data.name, file=file['file'], timestamp=data.timestamp)), address)
-                elif(data.code == 2): # Commit
-                    self.electionMsgReceived = False
-                    self.receivedMsg = CoordMessage(data.id,data.ip,data.port)
-                    self.messageQueue.append(self.receivedMsg)
-                else:
-                    # Si recibo un mensaje de eleccion data.code == 3 => envio ack y ya
-                    # si mi id es mayor lo ignoro ==> NO ENVIO ACK
-                    print('sending acknowledgement to', address)
-                    sock.sendto(pickle.dumps(ACKMessage(-1)), address)
+            if data.code>4:
+                if self.server.id in data.ids:
+                    if(data.code == 5): # Update
+                        # Find file
+                        file = self.server.update(data.name, data.client)
+                        self.receivedMsg = Update(client=data.client, name=data.name, file=file['file'], timestamp=file['date'])
+                        print('sending update of '+ data.name +' to ', address)
+                        sock.sendto(pickle.dumps(self.receivedMsg), address)
+                    elif(data.code == 6): # Checkout
+                        file = self.server.checkout(data.name, data.client, data.timestamp)
+                        print('sending checkout of '+ data.name +' at '+ data.time +' to ', address)
+                        sock.sendto(pickle.dumps(Checkout(client=data.client, name=data.name, file=file['file'], timestamp=data.timestamp)), address)
+                    elif(data.code == 7): # Commit
+                        self.electionMsgReceived = False
+                        self.receivedMsg = CoordMessage(data.id,data.ip,data.port)
+                        self.messageQueue.append(self.receivedMsg)
+                    else:
+                        # Si recibo un mensaje de eleccion data.code == 3 => envio ack y ya
+                        # si mi id es mayor lo ignoro ==> NO ENVIO ACK
+                        print('sending acknowledgement to', address)
+                        sock.sendto(pickle.dumps(ACKMessage(-1)), address)
             
 
 class IdMessage:
@@ -656,7 +707,7 @@ class Heartbeat:
 
 class Update:
     def __init__(self, client, name, file=None, timestamp=None, ids=None):
-        self.code = 0
+        self.code = 5
         self.client = client
         self.name = name
         self.file = file
@@ -667,7 +718,7 @@ class Update:
 
 class Checkout:
     def __init__(self, client, name, file=None, timestamp=None, ids=None):
-        self.code = 1
+        self.code = 6
         self.client = client
         self.name = name
         self.file = file
