@@ -61,11 +61,11 @@ def get_utc_time():
     return timestamp
 
 
-def getNextReplicateServer(lastReplicateServer, serversTable, coordId):
+def getNextReplicateServer(lastReplicateServer, serversTable, coordId, excluding=[]):
     # Find server for replication
     boundId = None
     for serverId in serversTable:
-        if serverId==coordId:
+        if serverId==coordId or serverId in excluding:
             continue
         if serverId>lastReplicateServer:
             if boundId:
@@ -76,7 +76,7 @@ def getNextReplicateServer(lastReplicateServer, serversTable, coordId):
     
     if not boundId: # We have to restart list and get min
         for serverId in serversTable:
-            if serverId==coordId:
+            if serverId==coordId or serverId in excluding:
                 continue
             if serverId<lastReplicateServer:
                 if boundId:
@@ -85,6 +85,17 @@ def getNextReplicateServer(lastReplicateServer, serversTable, coordId):
                 else:
                     boundId = serverId
     return boundId
+
+
+def getNextKServers(lastReplicateServer, serversTable, coordId, k):
+    excluding = []
+    for i in range(k+1):
+        nextServer = getNextReplicateServer(lastReplicateServer, serversTable, coordId, excluding)
+        if not nextServer: # We don't have more servers to replicate
+            return excluding
+        excluding.append(nextServer)
+    return excluding
+
 
 def calcPartitions(serversTable, coordId, k):
     partitionTable = {}
