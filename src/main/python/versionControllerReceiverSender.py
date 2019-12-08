@@ -1004,7 +1004,7 @@ class replicateReceiver(Thread):
 
         # Bind the socket to the port
         server_address = (str(self.server.host), 20000)
-        print('Starting up on {} port {}'.format(*server_address))
+        # print('Starting up on {} port {}'.format(*server_address))
         sock.bind(server_address)
         sock.listen(1)
 
@@ -1017,8 +1017,8 @@ class replicateReceiver(Thread):
         else:
             nextReplicateServer = getNextReplicateServer(self.id, self.serversTable)
         
-        print(nextReplicateServer.host())
-        next_server_address = (str(nextReplicateServer.host()), 20001)
+        print(self.server.serversTable[nextReplicateServer].split(':')[0])
+        next_server_address = (str(self.server.serversTable[nextReplicateServer].split(':')[0]), 20001)
         newsocket.bind(next_server_address)
                     
 
@@ -1065,7 +1065,7 @@ class replicateSender(Thread):
 
         # Connect the socket to the port where the server is listening
         server_address = (str(self.server.host), 20000)
-        #print('connecting to {} port {}'.format(*server_address))
+        # print('connecting to {} port {}'.format(*server_address))
         sock.connect(server_address)
 
         try:
@@ -1104,7 +1104,7 @@ if __name__ == "__main__":
     time.sleep(3)
     # replicateReceiver(controller.server)
     # replicateSender(controller.server)
-    time.sleep(3)
+    # time.sleep(3)
     print("started multicast sender")
     receiverProcesser = receiverProcesser(receiver,broadcaster,controller.server)
     broadcasterProcesser = broadcasterProcesser(broadcaster,controller.server)
