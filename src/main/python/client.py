@@ -43,23 +43,42 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.comboBox.currentIndexChanged.connect(self.selectionChange)
 
     def btnUpdate(self):
-        self.ui.label_2.setText("Se hizo update del archivo: " + self.ui.comboBox.currentText())
-        update(self.ui.comboBox.currentText(),self.client_ip,self.servers)
+        if self.ui.lineEdit_2.text() == "":
+            self.ui.label_5.setText("Ingrese un nombre de usuario")
+        else:
+            if self.ui.comboBox.currentText()== "None":
+                self.ui.label_2.setText("Selecione un archivo")
+            else:
+                self.ui.label_2.setText("Se hizo update del archivo: " + self.ui.comboBox.currentText())
+                update(self.ui.comboBox.currentText(),self.ui.lineEdit_2.text(),self.servers)
 
 
     def btnCheckout(self):
-        self.ui.label_2.setText("Se hizo checkout del archivo: " + self.ui.comboBox.currentText())
-        checkout(self.ui.comboBox.currentText(),self.client_ip,self.ui.comboBox_2.currentText(),self.servers)
+        if self.ui.lineEdit_2.text() == "":
+            self.ui.label_5.setText("Ingrese un nombre de usuario")
+        else:
+            if self.ui.comboBox.currentText()== "None":
+                self.ui.label_2.setText("Selecione un archivo")
+            else:
+                self.ui.label_2.setText("Se hizo checkout del archivo: " + self.ui.comboBox.currentText())
+                checkout(self.ui.comboBox.currentText(),self.ui.lineEdit_2.text(),self.ui.comboBox_2.currentText(),self.servers)
 
     def btnCommit(self):
-        self.ui.label_5.setText("Commit del archivo: " + self.ui.lineEdit.text())
-        commit(self.ui.lineEdit.text(),self.client_ip,self.servers)
+        if self.ui.lineEdit_2.text() == "":
+            self.ui.label_5.setText("Ingrese un nombre de usuario")
+        else:
+            try:
+                self.ui.label_5.setText("Commit del archivo: " + self.ui.lineEdit.text())
+                commit(self.ui.lineEdit.text(),self.ui.lineEdit_2.text(),self.servers)
+                self.ui.lineEdit.setText("")
+            except:
+                self.ui.label_5.setText("Error con el archivo")
 
     def selectionChange(self):
         self.ui.label_2.setText("Selecciono la opcion: " + self.ui.comboBox.currentText())
         self.ui.comboBox_2.clear()
         #self.ui.comboBox_2.addItems(self.array2[int(self.ui.comboBox.currentText())-1])
-        versiones = self.servers.getTimeVersions(self.ui.comboBox.currentText(),self.client_ip)
+        versiones = self.servers.getTimeVersions(self.ui.comboBox.currentText(),self.ui.lineEdit_2.text())
         print("VERSIONES:")
         print(versiones)
         #versiones = versiones.keys()
