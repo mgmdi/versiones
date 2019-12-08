@@ -64,8 +64,11 @@ class Ui_MainWindow(object):
         self.label_7.setGeometry(QtCore.QRect(10, 40, 121, 17))
         self.label_7.setObjectName("label_7")
         self.lineEdit_2 = QtWidgets.QLineEdit(self.centralwidget)
-        self.lineEdit_2.setGeometry(QtCore.QRect(130, 30, 191, 33))
+        self.lineEdit_2.setGeometry(QtCore.QRect(130, 30, 151, 33))
         self.lineEdit_2.setObjectName("lineEdit_2")
+        self.pushButton_5 = QtWidgets.QPushButton(self.centralwidget)
+        self.pushButton_5.setGeometry(QtCore.QRect(310, 30, 121, 33))
+        self.pushButton_5.setObjectName("pushButton_5")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 466, 23))
@@ -91,4 +94,5 @@ class Ui_MainWindow(object):
         self.pushButton_4.setText(_translate("MainWindow", "Checkout"))
         self.label_6.setText(_translate("MainWindow", "File:"))
         self.label_7.setText(_translate("MainWindow", "Nombre de usuario:"))
+        self.pushButton_5.setText(_translate("MainWindow", "Cargar Archivos"))
 

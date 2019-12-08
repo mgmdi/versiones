@@ -16,10 +16,6 @@ class mywindow(QtWidgets.QMainWindow):
 
     client_ip = get_ip_address()
     servers = ""
-    #servers = find_servers()
-    #servers = "servers"
-
-    array = ["requirements.txt","File 2","File 3","File 4","File 5"]
 
     #versiones_arreglo = [["11/24/2019 22:12:29"],["11/24/2019 22:12:29"],["11/24/2019 22:12:29"],["11/24/2019 22:12:29"],["11/24/2019 22:12:29"]]
 
@@ -36,11 +32,27 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.pushButton_2.clicked.connect(self.btnCommit) ## BOTON DE COMMIT
         self.ui.pushButton_3.clicked.connect(self.btnUpdate) ## BOTON DE UPDATE
         self.ui.pushButton_4.clicked.connect(self.btnCheckout) ## BOTON DE CHECKOUT
+        self.ui.pushButton_5.clicked.connect(self.btnLoad) ## BOTON DE CARGAR ARCHIVOS
 
         # Llenamos el array con cosas
-        self.ui.comboBox.addItem("None")
-        self.ui.comboBox.addItems(self.array)
         self.ui.comboBox.currentIndexChanged.connect(self.selectionChange)
+    def btnLoad(self):
+        if self.ui.lineEdit_2.text() == "":
+            self.ui.label_5.setText("Ingrese un nombre de usuario")
+        else:
+            self.ui.comboBox.addItem("None")
+            files_names = self.servers.getFileNames(self.ui.lineEdit_2.text())
+            print("FILES:")
+            print(files_names)
+            if len(files_names) == 0:
+                self.ui.label_5.setText("No hay archivos para este usuario")
+            else:
+                self.ui.comboBox.addItems(files_names)
+                self.ui.label_5.setText("Archivos cargados")
+
+
+
+
 
     def btnUpdate(self):
         if self.ui.lineEdit_2.text() == "":
@@ -81,10 +93,6 @@ class mywindow(QtWidgets.QMainWindow):
         versiones = self.servers.getTimeVersions(self.ui.comboBox.currentText(),self.ui.lineEdit_2.text())
         print("VERSIONES:")
         print(versiones)
-        #versiones = versiones.keys()
-        #versiones_arreglo = []
-        #for v in versiones:
-        #    versiones_arreglo.append(v)
         self.ui.comboBox_2.addItems(versiones)
  
 def find_servers():

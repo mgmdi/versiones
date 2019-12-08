@@ -217,9 +217,22 @@
      <rect>
       <x>130</x>
       <y>30</y>
-      <width>191</width>
+      <width>151</width>
       <height>33</height>
      </rect>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_5">
+    <property name="geometry">
+     <rect>
+      <x>310</x>
+      <y>30</y>
+      <width>121</width>
+      <height>33</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Cargar Archivos</string>
     </property>
    </widget>
   </widget>
