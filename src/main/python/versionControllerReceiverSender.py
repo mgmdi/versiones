@@ -27,7 +27,7 @@ class VersionController(object):
         self.coord = None
         self.heartbeats = 0
         self.lastReplicateServer = -1 # last server for k-replication
-        self.versionTable = {} # dict['ip:puerto']={'file1':[1,2,3,4],..}
+        self.versionTable = {} # dict[id]={'file1':[1,2,3,4],..}
 
     def getStartingValue(self):
         return self.starting
@@ -169,7 +169,7 @@ class VersionController(object):
         recentVersion = version
         if not version: # Update
             recentVersion = 0
-            for server in self.versionTable: # dict['ip:puerto']={'file1':[1,2,3,4],..}
+            for server in self.versionTable: # dict[id]={'file1':[1,2,3,4],..}
                 if name in self.versionTable[server]:
                     for timestamp in self.versionTable[server][name]:
                         if int(timestamp) >= recentVersion:
@@ -667,6 +667,23 @@ class Heartbeat:
     def __repr__(self):
         return 'ack'
 
+class Update:
+    def __init__(self, client, file):
+        self.code = 0
+        self.client = client
+        self.file = file
+    def __repr__(self):
+        return 'Update ' + self.file + ' from ' + self.client
+
+class Checkout:
+    def __init__(self, client, file, timestamp):
+        self.code = 1
+        self.client = client
+        self.file = file
+        self.timestamp = timestamp
+    def __repr__(self):
+        return 'Checkout ' + self.file + ' from ' + self.client + ' on ' + self.timestamp
+
 class executeDaemon(Thread):
     def __init__(self, server):
         Thread.__init__(self)
@@ -808,9 +825,9 @@ class broadcasterProcesser(Thread):
                             if(key not in self.heartbeats):
                                 self.server.heartbeats += 1
                                 if(self.server.heartbeats > 5):
-                                    key_version = self.server.serversTable[key]
+                                    # key_version = self.server.serversTable[key]
                                     del self.server.serversTable[key]
-                                    del self.server.versionTable[key_version]
+                                    del self.server.versionTable[key]
                                     self.server.partitionTable = calcPartitions(self.server.serversTable, self.server.coord['id'], self.server.k)
                             else:
                                 self.server.hearbeats = 0
@@ -930,9 +947,9 @@ class broadcasterServiceProcesser(Thread):
                             if(key not in self.heartbeats):
                                 self.server.heartbeats += 1
                                 if(self.server.heartbeats > 5):
-                                    key_version = self.server.serversTable[key]
+                                    # key_version = self.server.serversTable[key]
                                     del self.server.serversTable[key]
-                                    del self.server.versionTable[key_version]
+                                    del self.server.versionTable[key]
                                     self.server.partitionTable = calcPartitions(self.server.serversTable, self.server.coord['id'], self.server.k)
                             else:
                                 self.server.hearbeats = 0
@@ -1008,7 +1025,7 @@ class replicateReceiver(Thread):
 
         # Bind the socket to the port
         server_address = (str(self.server.host), 20000)
-        print('Starting up on {} port {}'.format(*server_address))
+        # print('Starting up on {} port {}'.format(*server_address))
         sock.bind(server_address)
         sock.listen(1)
 
@@ -1021,8 +1038,8 @@ class replicateReceiver(Thread):
         else:
             nextReplicateServer = getNextReplicateServer(self.id, self.serversTable)
         
-        print(nextReplicateServer.host())
-        next_server_address = (str(nextReplicateServer.host()), 20001)
+        print(self.server.serversTable[nextReplicateServer].split(':')[0])
+        next_server_address = (str(self.server.serversTable[nextReplicateServer].split(':')[0]), 20001)
         newsocket.bind(next_server_address)
                     
 
@@ -1069,7 +1086,7 @@ class replicateSender(Thread):
 
         # Connect the socket to the port where the server is listening
         server_address = (str(self.server.host), 20000)
-        #print('connecting to {} port {}'.format(*server_address))
+        # print('connecting to {} port {}'.format(*server_address))
         sock.connect(server_address)
 
         try:
