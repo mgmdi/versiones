@@ -287,7 +287,7 @@ class broadcast(Thread):
                                 # Con esto puedo contar los mensajes en el hilo principal
                                 # para saber que no soy coord => debo tener > 1
                             elif(data.code == 4):
-                                self.response = Heartbeat(data.id)
+                                self.response = Heartbeat(id=data.id)
                                 print('heartbeat de!!!!!!!!!!!!!: ' + str(data.id))
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
@@ -398,6 +398,7 @@ class receive(Thread):
             elif(data.code == 4):
                 self.heartbeatReceived = True
                 self.receivedMessage = Heartbeat(versionTable=data.versionTable, serversTable=data.serversTable)
+                print('SENDING ANSWER TO HBB!!!! ' + str(self.server.getServerID()))
                 self.messageQueue.append(self.receivedMessage)
                 sock.sendto(pickle.dumps(Heartbeat(id=self.server.getServerID())), address)
             else:
@@ -665,7 +666,7 @@ class Heartbeat:
         self.versionTable = versionTable
         self.serversTable = serversTable
     def __repr__(self):
-        return 'ack'
+        return 'Heartbeat:::: ' + str(self.code) + ' ' + str(self.id)
 
 class Update:
     def __init__(self, client, file):
@@ -785,6 +786,7 @@ class broadcasterProcesser(Thread):
                     # en receive si recibo un mensaje de eleccion con un id menor lo ignoro
                 elif(response.code  == 4):
                     print('received heartbeat and el coord es: ' + str(self.server.coord))
+                    print('LISTA DE HEARTBEATS::::::: ' + str(response))
                     self.heartbeats.append(response.id)
             elif(self.broadcaster.getEndTransmission()['endTransmission']):
                 # Si termino la transmision y ya procese todos los mensajes
@@ -818,8 +820,9 @@ class broadcasterProcesser(Thread):
                     if(len(self.heartbeats) < len(self.server.serversTable)):
                         print('LEN MENOR')
                         serversTableKeys = list(self.server.serversTable)
-                        print(serversTableKeys)
-                        print(self.heartbeats)
+                        print('keys!!!!!!: ' + str(serversTableKeys))
+                        print('HEARTBEATS!!!!!: ' + str(self.heartbeats))
+                        #print(self.heartbeats)
                         for key in serversTableKeys:
                             print(key)
                             if(key not in self.heartbeats):
@@ -827,8 +830,10 @@ class broadcasterProcesser(Thread):
                                 if(self.server.heartbeats > 5):
                                     # key_version = self.server.serversTable[key]
                                     del self.server.serversTable[key]
-                                    del self.server.versionTable[key]
-                                    self.server.partitionTable = calcPartitions(self.server.serversTable, self.server.coord['id'], self.server.k)
+                                    print('Deleted : ' + str(key))
+                                    if key in self.server.versionTable:
+                                        del self.server.versionTable[key]
+                                    #self.server.partitionTable = calcPartitions(self.server.serversTable, self.server.coord['id'], self.server.k)
                             else:
                                 self.server.hearbeats = 0
                     self.heartbeats = []
