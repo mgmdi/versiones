@@ -88,6 +88,14 @@ class VersionController(object):
                 versions.append(date_time)
         print(versions)
         return versions
+
+    def getFileNames(self,id):
+        fileNames = []
+        for key in self.files:
+            item = key.split(':')
+            if(id == item[1]):
+                fileNames.append(item[0])
+        return fileNames
         
 
     def addFile(self, file, name, id):
