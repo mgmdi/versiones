@@ -65,7 +65,10 @@ def getNextServer(lastReplicateServer, serversTable, coordId, excluding=[]):
     # Find server for replication
     boundId = None
     for serverId in serversTable:
-        if int(serverId)==coordId or int(serverId) in excluding:
+        # print(type(serverId))
+        # print(type(coordId))
+        # print(type(lastReplicateServer))
+        if serverId==coordId or int(serverId) in excluding:
             continue
         if int(serverId)>lastReplicateServer:
             if boundId:
@@ -76,7 +79,7 @@ def getNextServer(lastReplicateServer, serversTable, coordId, excluding=[]):
     
     if not boundId: # We have to restart list and get min
         for serverId in serversTable:
-            if int(serverId)==coordId or int(serverId) in excluding:
+            if serverId==coordId or int(serverId) in excluding:
                 continue
             if int(serverId)<lastReplicateServer:
                 if boundId:
@@ -88,12 +91,13 @@ def getNextServer(lastReplicateServer, serversTable, coordId, excluding=[]):
 
 
 def getReplicateServers(lastReplicateServer, serversTable, coordId, serversNo, excluding=[]):
+    exclude_aux = excluding
     for i in range(serversNo):
-        nextServer = getNextServer(lastReplicateServer, serversTable, coordId, excluding)
+        nextServer = getNextServer(lastReplicateServer, serversTable, coordId, exclude_aux)
         if not nextServer: # We don't have more servers to replicate
-            return excluding
-        excluding.append(nextServer)
-    return excluding
+            return exclude_aux
+        exclude_aux.append(nextServer)
+    return exclude_aux
 
 
 def calcPartitions(serversTable, coordId, k):

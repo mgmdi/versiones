@@ -67,6 +67,9 @@ class VersionController(object):
             # Search for next k + 1 - lastReplicateServers 
             replicateServers = getReplicateServers(self.lastReplicateServer, 
                 self.serversTable, self.coord['id'], totalServers, lastReplicateServers)
+            print(replicateServers)
+            print(self.serversTable)
+            print(lastReplicateServers)
             if len(replicateServers)==0:
                 result['error'] = 'no servers left to replicate, replicated '+ str(self.k + 1 - totalServers)
                 return result
@@ -78,16 +81,16 @@ class VersionController(object):
                 else:
                     self.k = 1
             # Set message and notify broadcaster
-            self.serviceBroadcast.setMessage(Commit(id, name, file, timestamp, replicateServers))
+            self.serviceBroadcast.setMessage(Commit(client=id, name=name, file=file, timestamp=timestamp, ids=replicateServers))
             self.serviceBroadcast.canSend()
             # Receive, count and return if OK
             allSent = False
             while not allSent:
                 if(self.serviceBroadcast.theresMessage()):
                     for i in range(len(self.serviceBroadcast.messageQueue)):
-                        if self.serviceBroadcast.messageQueue[i]!=8: # not ACK Commit
+                        if self.serviceBroadcast.messageQueue[i].code!=8: # not ACK Commit
                             continue
-                        if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id and self.serviceBroadcast.messageQueue[i].timestamp==time:
+                        if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id and self.serviceBroadcast.messageQueue[i].timestamp==timestamp:
                             msg = self.serviceBroadcast.messageQueue.pop(i)
                             # Check id and count
                             receivedServers.append(msg.id)
@@ -95,23 +98,32 @@ class VersionController(object):
                 elif(self.serviceBroadcast.getEndTransmission()['endTransmission']):
                     # Si termino la transmision y ya procese todos los mensajes
                     print('COMMIT RESPONSES: ' + str(self.commitResponses))
-                    if(self.serviceBroadcast.getEndTransmission()['messageType'] == 8):
+                    print(self.serviceBroadcast.getEndTransmission()['messageType'])
+                    if(self.serviceBroadcast.getEndTransmission()['messageType'] == 7):
                         # check to totalServers
-                        self.totalServers -= self.commitResponses
+                        totalServers -= self.commitResponses
                         self.commitResponses = 0
                         for server in receivedServers:
                             # Update version table
-                            if self.versionTable[int(server)][name]:
-                                self.versionTable[int(server)][name].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
-                            # Change replicateServers to receivedServers
-                            # replicateServers = receivedServers
+                            if not server in self.versionTable:
+                                self.versionTable[server] = {}
+
+                            if not name in self.versionTable[server]:
+                                self.versionTable[server][name] = []
+                            print("version table")
+                            print(self.versionTable)
+                            self.versionTable[server][name].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
+                        # Change replicateServers to receivedServers
+                        replicateServers = receivedServers
+                        allSent = True
                     self.serviceBroadcast.setEndTransmission(False)
-                    allSent = True
-                if time.time() > timeoutInner:
-                    result['error'] = 'no response for commit from servers'
-                    return result
+                # if time.time() > timeoutInner:
+                #     print("TIMEOUT INNER")
+                #     result['error'] = 'no response for commit from servers'
+                #     return result
             lastReplicateServers = replicateServers
             if time.time() > timeoutOuter:
+                print("TIMEOUT OUTER")
                 result['error'] = 'no response for commit from servers'
                 return result
         return result
@@ -243,39 +255,6 @@ class VersionController(object):
             data = s.recv(4096)
             self.id = data.decode()
         # print('Received', repr(data))
-
-    # def sendCommit(self, file, name, id):
-    #     while not self.coord:
-    #         pass
-        
-    #     if self.coord['id']==self.id:
-    #         nextReplicateServer = getNextReplicateServer(self.lastReplicateServer, self.serversTable)
-    #         self.lastReplicateServer = nextReplicateServer
-    #     else:
-    #         nextReplicateServer = getNextReplicateServer(self.id, self.serversTable)
-
-    #     ipPortaux = self.serversTable[nextReplicateServer]
-    #     ipPort = ipPortaux.split(':')
-    #     HOST = ipPort[0]
-    #     PORT = ipPort[1]
-    #     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    #         s.connect((HOST, PORT))
-    #         data = {
-    #             'file': file,
-    #             'name': name,
-    #             'id': id
-    #         }
-    #         encoded_data = pickle.dumps(data)
-    #         s.sendall(encoded_data)
-    #         data = s.recv(1024)
-
-    #         s.bind((HOST, int(PORT)))
-    #         s.listen(1)
-    #         while True:
-    #             conn, addr = s.accept()
-    #             with conn:
-    #                 print('Connected by', addr)
-    #                 conn.sendall(str(self.getID()).encode())
 
 
     def getServersVersion(self, name, id, version=None):
@@ -685,14 +664,14 @@ class receiveService(Thread):
         # Receive/respond loop
         while True:
             print('\nwaiting to receive SERVICE message\n')
-            data, address = sock.recvfrom(4096)
-
-            print('received SERVICE {} bytes from {}'.format(
-                len(data), address))
-            data = pickle.loads(data)
-            print(data)
+            data_raw, address = sock.recvfrom(4096)
+            data = pickle.loads(data_raw)
             if data.code>4:
-                if self.server.id in data.ids:
+                print('received SERVICE {} bytes from {}'.format(
+                    len(data_raw), address))
+                print('received service was '+str(data))
+                if int(self.server.id) in data.ids:
+                    print("Going to commit with "+str(self.server.id))
                     if(data.code == 5): # Update
                         # Find file
                         file = self.server.update(data.name, data.client)
