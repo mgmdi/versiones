@@ -133,7 +133,6 @@ def commit(file_name,user,servers):
         file = open(file_name,'r')
         servers.commit(file.read(), file_name, user)
         file.close()
-
     elif array_file[1] == "png" or array_file[1] == "jpg": 
         with open(file_name, "rb") as img_file:
             img = img_file.read()
