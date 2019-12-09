@@ -60,9 +60,10 @@ class VersionController(object):
         result = {}
         timeoutOuter = time.time() + 30   # 30 sec from now
         timeoutInner = time.time() + 15   # 15 sec from now
-        now = datetime.now()
-        date_time = now.strftime('%m/%d/%Y %H:%M:%S')
-        timestamp = datetime.timestamp(now)
+        #now = datetime.now()
+        #date_time = now.strftime('%m/%d/%Y %H:%M:%S')
+        #timestamp = datetime.timestamp(now)
+        timestamp = get_utc_time()
         while totalServers>0:
             # Search for next k + 1 - lastReplicateServers 
             replicateServers = getReplicateServers(self.lastReplicateServer, 
@@ -232,6 +233,27 @@ class VersionController(object):
                 versions[name].append(versionObj)
         print(versions)
         return versions
+
+    def getTimeVersions(self,name,id):
+                # Returns array: [datetime]
+        versions = []
+        key = name + ':' + id
+        if(key in self.files):
+            for version in self.files[key]:
+                date = datetime.fromtimestamp(version['timestamp'])
+                date_time = date.strftime('%m/%d/%Y %H:%M:%S')
+                versions.append(date_time)
+        print(versions)
+        return versions
+
+    def getFileNames(self,id):
+        fileNames = []
+        for key in self.files:
+            item = key.split(':')
+            if(id == item[1]):
+                fileNames.append(item[0])
+        return fileNames
+        
 
     def addFile(self, file, name, id, timestamp):
         fileInfo = {'file': file, 'timestamp': timestamp}
