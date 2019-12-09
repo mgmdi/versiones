@@ -7,7 +7,6 @@ import os.path as op
 from PyQt5 import QtWidgets, QtGui,QtCore
 from mydesing import Ui_MainWindow  # importing our generated file
 import sys
-from PIL import Image
 import base64
 
 class Client:

@@ -115,6 +115,7 @@ class VersionController(object):
                         totalServers -= self.commitResponses
                         self.commitResponses = 0
                         first = True
+                        key = name + ':' + id
                         for server in receivedServers:
                             if first and self.k != 0:
                                 first = False
@@ -124,12 +125,11 @@ class VersionController(object):
                             if not server in self.versionTable:
                                 self.versionTable[server] = {}
 
-                            if not name in self.versionTable[server]:
-                                key = name + ':' + id
+                            if not key in self.versionTable[server]:
                                 self.versionTable[server][key] = []
+                            self.versionTable[server][key].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
                             print("version table")
                             print(self.versionTable)
-                            self.versionTable[server][key].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
                         # Change replicateServers to receivedServers
                         replicateServers = receivedServers
                         allSent = True
@@ -256,6 +256,7 @@ class VersionController(object):
             if key in self.versionTable[server]:
                 versions += self.versionTable[server][key]
         versions = list(dict.fromkeys(versions))
+        print('VERSIONS: ' + str(versions))
         versions_aux = []
         for v in versions:
             date = datetime.fromtimestamp(v)
@@ -275,9 +276,10 @@ class VersionController(object):
             print("ITEM:")
             print(item)
             for it in item:
-            	it2 = it.split(":")
-            	if it2[1] == id:
-                	fileNames.append(it2[0])
+                it2 = it.split(":")
+                if it2[1] == id:
+                    if(it2[0] not in fileNames):
+                        fileNames.append(it2[0])
         return fileNames
         
 
@@ -735,7 +737,7 @@ class receiveService(Thread):
 
         # Receive/respond loop
         while True:
-            print('\nwaiting to receive SERVICE message\n')
+            #print('\nwaiting to receive SERVICE message\n')
             data_raw, address = sock.recvfrom(4096)
             data = pickle.loads(data_raw)
             if data.code>4:
@@ -900,6 +902,7 @@ class receiverProcesser(Thread):
                 message = self.receiver.getQueuedMessage()
                 if(message.code == 0):
                     self.server.serversTable[message.id] = message.ip + ':' + str(message.port)
+                    print('LA TABLA DE SERVIDORES ES: ' + str(self.server.serversTable))
                     # print(self.server.serversTable)
                 elif(message.code == 1):
                     self.broadcaster.setMessage(ElectionMessage(self.server.getServerID()))
@@ -916,6 +919,7 @@ class receiverProcesser(Thread):
                     self.server.versionTable = message.versionTable
                     self.server.serversTable = message.serversTable
                     self.server.k = message.k
+                    print('LA TABLA DE SERVIDORES ES: ' + str(self.server.serversTable))
                     # print("received heartbeat and \nversion table "+str(message.versionTable)+"\nservers table "+str(message.serversTable))
 
 class broadcasterProcesser(Thread):
@@ -937,6 +941,7 @@ class broadcasterProcesser(Thread):
                 # print(response)
                 if(response.code == 0):
                     self.server.serversTable[response.id] = response.ip + ':' + str(response.port)
+                    print('LA TABLA DE SERVIDORES ES: ' + str(self.server.serversTable))
                     # print('SERVERS TABLE')
                     # print(self.server.serversTable)
                 elif(response.code == 2):
@@ -946,6 +951,7 @@ class broadcasterProcesser(Thread):
                         'ip': response.ip,
                         'port': response.port
                     }
+                    print('RECIBI UN MENSAJE DEL COORDINADOR. EL COORDINADOR ES: ' + str(self.server.coord))
                     # print('servercoord : ' + str(self.server.coord))
                 elif(response.code == 3):
                     # print('ack response to ' + str(response.responseTo))  
@@ -1053,7 +1059,7 @@ class heartbeatChecker(Thread):
                     if(not self.receiver.heartbeatReceived and self.server.coord['id']):
                         # print(self.server.coord)
                         # print(self.server.serversTable)
-                        del self.server.serversTable[self.server.coord['id']] 
+                        del self.server.serversTable[self.server.coord['id']]
                         self.server.coord['id'] = None
                         self.broadcaster.messageQueue = []
                         self.receiver.messageQueue = []
