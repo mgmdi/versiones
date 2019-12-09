@@ -60,9 +60,10 @@ class VersionController(object):
         result = {}
         timeoutOuter = time.time() + 30   # 30 sec from now
         timeoutInner = time.time() + 15   # 15 sec from now
-        now = datetime.now()
-        date_time = now.strftime('%m/%d/%Y %H:%M:%S')
-        timestamp = datetime.timestamp(now)
+        # now = datetime.now()
+        # date_time = now.strftime('%m/%d/%Y %H:%M:%S')
+        # timestamp = datetime.timestamp(now)
+        timestamp = get_utc_time()
         while totalServers>0:
             # Search for next k + 1 - lastReplicateServers 
             replicateServers = getReplicateServers(self.lastReplicateServer, 
