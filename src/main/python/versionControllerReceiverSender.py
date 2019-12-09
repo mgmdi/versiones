@@ -103,7 +103,11 @@ class VersionController(object):
                         # check to totalServers
                         totalServers -= self.commitResponses
                         self.commitResponses = 0
+                        first = True
                         for server in receivedServers:
+                            if first:
+                                first = False
+                                self.lastReplicateServer = server
                             # Update version table
                             if not server in self.versionTable:
                                 self.versionTable[server] = {}
@@ -1097,7 +1101,7 @@ class replicateSender(Thread):
 
 if __name__ == "__main__":
     serviceBroadcaster = broadcastService()
-    k = 0
+    k = 1
     controller = executeController(k, serviceBroadcaster)
     serviceReceiver = receiveService(controller.server)
     print("started controller")

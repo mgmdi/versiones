@@ -92,11 +92,13 @@ def getNextServer(lastReplicateServer, serversTable, coordId, excluding=[]):
 
 def getReplicateServers(lastReplicateServer, serversTable, coordId, serversNo, excluding=[]):
     exclude_aux = excluding
+    last_aux = lastReplicateServer
     for i in range(serversNo):
-        nextServer = getNextServer(lastReplicateServer, serversTable, coordId, exclude_aux)
+        nextServer = getNextServer(int(last_aux), serversTable, coordId, exclude_aux)
         if not nextServer: # We don't have more servers to replicate
             return exclude_aux
         exclude_aux.append(nextServer)
+        last_aux = nextServer
     return exclude_aux
 
 
