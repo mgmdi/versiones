@@ -29,6 +29,7 @@ class VersionController(object):
         self.lastReplicateServer = -1 # last server for k-replication
         self.versionTable = {} # dict[id]={'file1':[1,2,3,4],..}
         self.serviceBroadcast = broadcast
+        self.commitResponses = 0
 
     def getStartingValue(self):
         return self.starting
@@ -55,21 +56,57 @@ class VersionController(object):
     def commit(self, file, name, id): # For coord
         totalServers = self.k + 1
         lastReplicateServers = []
+        receivedServers = []
+        result = {}
+        timeout = time.time() + 15   # 15 sec from now
         while totalServers>0:
             # Search for next k + 1 servers
             replicateServers = getReplicateServers(self.lastReplicateServer, 
-                self.serversTable, self.coord['id'], self.k, lastReplicateServers)
-            # Change k
-            replicateNo = len(replicateServers)
-            if replicateNo>1:
-                self.k = replicateNo - 1
-            else:
-                self.k = 1
+                self.serversTable, self.coord['id'], totalServers, lastReplicateServers)
+            if len(replicateServers)==0:
+                result['error'] = 'no servers left to replicate'
+                return result
+            # Change k if needed
+            if len(replicateServers)!=self.k+1:
+                replicateNo = len(replicateServers)
+                if replicateNo>1:
+                    self.k = replicateNo - 1
+                else:
+                    self.k = 1
             # Set message and notify broadcaster
-            self.serviceBroadcast.setMessage(Update(client=id, name=name, ids=serversIds))
+            now = datetime.now()
+            date_time = now.strftime('%m/%d/%Y %H:%M:%S')
+            timestamp = datetime.timestamp(now)
+            self.serviceBroadcast.setMessage(Commit(id, name, file, timestamp, replicateServers))
             self.canSend()
-            # Receive,count and return if OK
+            # Receive, count and return if OK
+            allSent = False
+            while not allSent:
+                if(self.serviceBroadcast.theresMessage()):
+                    for i in range(len(self.serviceBroadcast.messageQueue)):
+                        if self.serviceBroadcast.messageQueue[i]!=8: # not ACK Commit
+                            continue
+                        if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id and self.serviceBroadcast.messageQueue[i].timestamp==time:
+                            msg = self.serviceBroadcast.messageQueue.pop(i)
+                            # Check id and count
+                            receivedServers.append(msg.id)
+                            self.commitResponses += 1
+                elif(self.serviceBroadcast.getEndTransmission()['endTransmission']):
+                    # Si termino la transmision y ya procese todos los mensajes
+                    print('COMMIT RESPONSES: ' + str(self.commitResponses))
+                    if(self.broadcaster.getEndTransmission()['messageType'] == 8):
+                        # check to totalServers
+                        self.totalServers -= self.commitResponses
+                        self.commitResponses = 0
+                        for server in receivedServers: # Update version table
+                            pass
+                    self.serviceBroadcast.setEndTransmission(False)
+                    allSent = True
+                if time.time() > timeout:
+                    result['error'] = 'no response for commit from servers'
+                    return result
             lastReplicateServers = replicateServers
+        return result
 
     def commitServer(self, file, name, id, timestamp):
         self.addFile(file, name, id, timestamp)
@@ -84,12 +121,12 @@ class VersionController(object):
             self.serviceBroadcast.setMessage(Checkout(client=id, name=name, timestamp=time, ids=serversIds))
             self.canSend()
             # Receive and return
-            timeout = time.time() + 30   # 30 sec from now
+            timeout = time.time() + 15   # 15 sec from now
             received = False
             while not received:
                 if(self.serviceBroadcast.theresMessage()):
                     for i in range(len(self.serviceBroadcast.messageQueue)):
-                        if self.serviceBroadcast.messageQueue[i]!=0:
+                        if self.serviceBroadcast.messageQueue[i]!=1:
                             continue
                         if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id and self.serviceBroadcast.messageQueue[i].timestamp==time:
                             msg = self.serviceBroadcast.messageQueue.pop(i)
@@ -563,9 +600,9 @@ class broadcastService(Thread):
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
                                 break
-                            elif(data.code == 7): # ESTO PUEDE SERVIR PARA COMMIT CON BROADCAST
-                                self.response = ACKMessage(data.responseTo)
-                                print('ack to ' + str(data.responseTo))
+                            elif(data.code == 8): # ACK commit
+                                self.response = ACKCommit(data.client, data.name, data.timestamp, data.id)
+                                print('commit ack from ' + str(data.id))
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
                                 # Con esto puedo contar los mensajes en el hilo principal
@@ -596,23 +633,15 @@ class receiveService(Thread):
     def __init__(self, server):
         Thread.__init__(self)
         self.daemon = True
-        self.HOSTID = -1
         self.server = server
-        self.serverInfoMsg = None
         self.received = False
         self.receivedMsg = None
         self.messageType = -1
         self.messageQueue = []
-        self.heartbeatReceived = False
-        self.electionMsgReceived = False
         self.start()
 
     def getMessage(self):
         return self.receivedMsg
-
-    def setServerInfo(self, id, ip, port):
-        self.serverInfoMsg = IdMessage(id, ip, port)
-        self.HOSTID = int(id)
 
     def clearMessage(self):
         self.receivedMsg = None
@@ -667,9 +696,8 @@ class receiveService(Thread):
                         print('sending CHECKOUT of '+ data.name +' at '+ data.time +' to ', address)
                         sock.sendto(pickle.dumps(Checkout(client=data.client, name=data.name, file=file['file'], timestamp=data.timestamp)), address)
                     elif(data.code == 7): # Commit
-                        self.electionMsgReceived = False
-                        self.receivedMsg = CoordMessage(data.id,data.ip,data.port)
-                        self.messageQueue.append(self.receivedMsg)
+                        self.server.commitServer(data.file, data.name, data.client, data.timestamp)
+                        sock.sendto(pickle.dumps(ACKCommit(data.client, data.name, data.timestamp, self.server.id)), address)
                     else:
                         # Si recibo un mensaje de eleccion data.code == 3 => envio ack y ya
                         # si mi id es mayor lo ignoro ==> NO ENVIO ACK
@@ -745,7 +773,7 @@ class Checkout:
         return 'Checkout ' + self.name + ' from ' + self.client + ' on ' + self.timestamp
 
 class Commit:
-    def __init__(self, client, name, file=None, timestamp=None, ids=None):
+    def __init__(self, client, name, file, timestamp, ids):
         self.code = 7
         self.client = client
         self.name = name
@@ -756,10 +784,11 @@ class Commit:
         return 'Commit ' + self.name + ' from ' + self.client + ' on ' + self.timestamp
 
 class ACKCommit:
-    def __init__(self, client, name, id):
+    def __init__(self, client, name, timestamp, id):
         self.code = 8
         self.client = client
         self.name = name
+        self.timestamp = timestamp
         self.id = id
     def __repr__(self):
         return 'Committed ' + self.name + ' from ' + self.client + ' on server ' + self.id

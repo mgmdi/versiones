@@ -87,8 +87,8 @@ def getNextServer(lastReplicateServer, serversTable, coordId, excluding=[]):
     return boundId
 
 
-def getReplicateServers(lastReplicateServer, serversTable, coordId, k, excluding=[]):
-    for i in range(k+1):
+def getReplicateServers(lastReplicateServer, serversTable, coordId, serversNo, excluding=[]):
+    for i in range(serversNo):
         nextServer = getNextServer(lastReplicateServer, serversTable, coordId, excluding)
         if not nextServer: # We don't have more servers to replicate
             return excluding
