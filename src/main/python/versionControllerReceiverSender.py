@@ -609,7 +609,7 @@ class broadcastService(Thread):
 
                     # Look for responses from all recipients
                     while True:
-                        print('waiting to receive SERVICE')
+                        #print('waiting to receive SERVICE')
                         try:
                             data, server = sock.recvfrom(4096)
                             data = pickle.loads(data)
@@ -699,7 +699,7 @@ class receiveService(Thread):
 
         # Receive/respond loop
         while True:
-            print('\nwaiting to receive SERVICE message\n')
+            #print('\nwaiting to receive SERVICE message\n')
             data_raw, address = sock.recvfrom(4096)
             data = pickle.loads(data_raw)
             if data.code>4:
@@ -863,6 +863,8 @@ class receiverProcesser(Thread):
                 message = self.receiver.getQueuedMessage()
                 if(message.code == 0):
                     self.server.serversTable[message.id] = message.ip + ':' + str(message.port)
+                    print('SERVERS TABLE')
+                    print(self.server.serversTable)
                     # print(self.server.serversTable)
                 elif(message.code == 1):
                     self.broadcaster.setMessage(ElectionMessage(self.server.getServerID()))
@@ -873,6 +875,7 @@ class receiverProcesser(Thread):
                         'ip':message.ip,
                         'port':message.port
                     }
+                    print('RECIBI MENSAJE DE COORDINADOR. EL COORDINADOR ES: ' + str(self.server.coord))
                     # print('received coord msg!!!!!!!!!!!!!!!!!!!!!!!!!')
                 elif(message.code == 4):
                     self.server.versionTable = message.versionTable
@@ -899,8 +902,8 @@ class broadcasterProcesser(Thread):
                 # print(response)
                 if(response.code == 0):
                     self.server.serversTable[response.id] = response.ip + ':' + str(response.port)
-                    # print('SERVERS TABLE')
-                    # print(self.server.serversTable)
+                    print('SERVERS TABLE')
+                    print(self.server.serversTable)
                 elif(response.code == 2):
                     # print('received coord msg, debo cambiar controller.server.coord')
                     self.server.coord = {
@@ -908,6 +911,7 @@ class broadcasterProcesser(Thread):
                         'ip': response.ip,
                         'port': response.port
                     }
+                    print('RECIBI MENSAJE DE COORDINADOR. EL COORDINADOR ES: ' + str(self.server.coord))
                     # print('servercoord : ' + str(self.server.coord))
                 elif(response.code == 3):
                     # print('ack response to ' + str(response.responseTo))  
@@ -940,11 +944,9 @@ class broadcasterProcesser(Thread):
                         # run_coord(self.server, self.server.getHOST(), self.server.getPORT(),0)
                         self.broadcaster.setMessage(CoordMessage(self.server.coord['id'],self.server.coord['ip'],self.server.coord['port']))
                         self.broadcaster.canSend()
+                        print('SOY EL COORDINADOR Y MI INFORMACION ES: ' + str(self.server.coord))
                     else:
                         self.electionResponses = 0
-                    # print('fin mensaje de eleccion, debo contar los ack')
-                    # print('COORD')
-                    # print(self.server.coord)
                 elif(self.broadcaster.getEndTransmission()['messageType'] == 4):
                     # print('process hearbeats!!!!!')
                     # print(self.server.serversTable.items())
@@ -1061,7 +1063,7 @@ class replicateReceiver(Thread):
 
         while True:
             # Wait for a connection
-            print('waiting for a connection')
+            #print('waiting for a connection')
             connection, client_address = sock.accept()
             try:
                 print('connection from', client_address)
