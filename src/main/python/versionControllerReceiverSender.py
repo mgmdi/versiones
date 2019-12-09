@@ -124,10 +124,10 @@ class VersionController(object):
                                 self.versionTable[server] = {}
 
                             if not name in self.versionTable[server]:
-                                self.versionTable[server][name] = []
+                                self.versionTable[server][name+':'+id] = []
                             print("version table")
                             print(self.versionTable)
-                            self.versionTable[server][name].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
+                            self.versionTable[server][name+':'+id].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
                         # Change replicateServers to receivedServers
                         replicateServers = receivedServers
                         allSent = True
@@ -240,21 +240,26 @@ class VersionController(object):
         return versions
 
     def getTimeVersions(self,name,id):
-                # Returns array: [datetime]
+        # Returns array: [datetime]
         versions = []
         key = name + ':' + id
-        if(key in self.files):
-            for version in self.files[key]:
-                date = datetime.fromtimestamp(version['timestamp'])
-                date_time = date.strftime('%m/%d/%Y %H:%M:%S')
-                versions.append(date_time)
+        # key = id
+        # if(key in self.versionTable):
+        #     for version in self.versionTable[key]:
+        #         date = datetime.fromtimestamp(version['timestamp'])
+        #         date_time = date.strftime('%m/%d/%Y %H:%M:%S')
+        #         versions.append(date_time)
+        for server in self.versionTable:
+            if key in self.versionTable[server]:
+                versions += self.versionTable[server][key]
+        versions = list(dict.fromkeys(versions))
         print(versions)
         return versions
 
-    def getFileNames(self,id):
+    def getFileNames(self, id):
         fileNames = []
-        for key in self.files:
-            item = key.split(':')
+        for server in self.versionTable:
+            item = self.versionTable[server].split(':')
             if(id == item[1]):
                 fileNames.append(item[0])
         return fileNames
@@ -304,7 +309,7 @@ class VersionController(object):
         recentVersion = version
         if not version: # Update
             recentVersion = -1
-            for server in self.versionTable: # dict[id]={'file1':[1,2,3,4],..}
+            for server in self.versionTable: # dict[id]={'file1:naruto':[1,2,3,4],..}
                 key = name
                 if key in self.versionTable[server]:
                     for timestamp in self.versionTable[server][key]:
