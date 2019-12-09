@@ -41,6 +41,8 @@ class VersionController(object):
     # Services
     def commit(self, file, name, id):
         self.addFile(file, name, id)
+        print("FILE:")
+        print(file)
         print(self.files)
 
 
@@ -53,6 +55,7 @@ class VersionController(object):
                 stamp = datetime.timestamp(date_time_obj)
                 # print(stamp)
                 if(int(version['timestamp']) == int(stamp)):
+                    print("VERSION DEL CHECKOUT:")
                     print(version)
                     return version
         return {}

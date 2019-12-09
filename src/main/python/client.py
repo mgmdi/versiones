@@ -6,6 +6,8 @@ import os.path as op
 from PyQt5 import QtWidgets, QtGui,QtCore
 from mydesing import Ui_MainWindow  # importing our generated file
 import sys
+from PIL import Image
+import base64
 
 class Client:
 
@@ -16,8 +18,6 @@ class mywindow(QtWidgets.QMainWindow):
 
     client_ip = get_ip_address()
     servers = ""
-
-    #versiones_arreglo = [["11/24/2019 22:12:29"],["11/24/2019 22:12:29"],["11/24/2019 22:12:29"],["11/24/2019 22:12:29"],["11/24/2019 22:12:29"]]
 
     def __init__(self,servers):
      
@@ -37,6 +37,7 @@ class mywindow(QtWidgets.QMainWindow):
         # Llenamos el array con cosas
         self.ui.comboBox.currentIndexChanged.connect(self.selectionChange)
     def btnLoad(self):
+        self.ui.comboBox.clear()
         if self.ui.lineEdit_2.text() == "":
             self.ui.label_5.setText("Ingrese un nombre de usuario")
         else:
@@ -49,10 +50,6 @@ class mywindow(QtWidgets.QMainWindow):
             else:
                 self.ui.comboBox.addItems(files_names)
                 self.ui.label_5.setText("Archivos cargados")
-
-
-
-
 
     def btnUpdate(self):
         if self.ui.lineEdit_2.text() == "":
@@ -89,10 +86,7 @@ class mywindow(QtWidgets.QMainWindow):
     def selectionChange(self):
         self.ui.label_2.setText("Selecciono la opcion: " + self.ui.comboBox.currentText())
         self.ui.comboBox_2.clear()
-        #self.ui.comboBox_2.addItems(self.array2[int(self.ui.comboBox.currentText())-1])
         versiones = self.servers.getTimeVersions(self.ui.comboBox.currentText(),self.ui.lineEdit_2.text())
-        print("VERSIONES:")
-        print(versiones)
         self.ui.comboBox_2.addItems(versiones)
  
 def find_servers():
@@ -105,23 +99,54 @@ def find_servers():
         raise ValueError("No servers found")
     return server
 
-def update(file_name, ip,servers):
-    servers.update(file_name, ip)
-    print("Update")
+def update(file_name, user,servers):
+    a = servers.update(file_name, user)
+    file = a['file']
+    array_file = file_name.split(".")
+    if array_file[1] == "txt":
+        f=open(file_name,"w")
+        f.write(file)
+        f.close()
+    else:
+        data = base64.b64decode(file["data"]) 
+        g = open(file_name, "wb")
+        g.write(data)
+        g.close()
 
-def checkout(file_name,ip,date,servers):
-    servers.checkout(file_name, ip, date)
-    print("Checkout")
+def checkout(file_name,user,date,servers):
+    a = servers.checkout(file_name, user, date)
+    file = a['file']
+    array_file = file_name.split(".")
+    if array_file[1] == "txt":
+        f=open(file_name,"w")
+        f.write(file)
+        f.close()
+    else:
+        data = base64.b64decode(file["data"]) 
+        g = open(file_name, "wb")
+        g.write(data)
+        g.close()
 
-def commit(file_name,ip,servers):
-    versiones_dir = op.abspath(op.join(__file__, op.pardir, op.pardir, op.pardir, op.pardir))
-    file = open(op.join(versiones_dir, file_name),'r')
-    #file_ = open(op.join(versiones_dir, "test.txt"),'r')
-    servers.commit(file.read(), file_name, ip)
-    #time.sleep(3.5)
-    #servers.commit(file_.read(), 'file', ip)
+def commit(file_name,user,servers):
+    array_file = file_name.split(".")
+    if array_file[1] == "txt":
+        file = open(file_name,'r')
+        servers.commit(file.read(), file_name, user)
+        file.close()
+
+    elif array_file[1] == "png" or array_file[1] == "jpg": 
+        with open(file_name, "rb") as img_file:
+            img = img_file.read()
+            print(img)
+            servers.commit(img,file_name,user)
+
 
 def main():
+    f=open("test1.txt","w")
+    f.write("my first file\n")
+    f.write("This file\n\n")
+    f.write("contains three lines\n")
+    f.close()
     ip = get_ip_address()
     if ip==None:
         print("Not connected to the internet")
