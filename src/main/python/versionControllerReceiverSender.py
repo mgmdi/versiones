@@ -238,7 +238,32 @@ class VersionController(object):
         print(versions)
         return versions
 
+    def getTimeVersions(self,name,id):
+                # Returns array: [datetime]
+        versions = []
+        key = name + ':' + id
+        if(key in self.files):
+            for version in self.files[key]:
+                date = datetime.fromtimestamp(version['timestamp'])
+                date_time = date.strftime('%m/%d/%Y %H:%M:%S')
+                versions.append(date_time)
+        print(versions)
+        return versions
+
+    def getFileNames(self,id):
+        fileNames = []
+        for key in self.files:
+            item = key.split(':')
+            if(id == item[1]):
+                fileNames.append(item[0])
+        return fileNames
+        
+
     def addFile(self, file, name, id, timestamp):
+        #now = datetime.now()
+        #date_time = now.strftime('%m/%d/%Y %H:%M:%S')
+        #timestamp = datetime.timestamp(now)
+        timestamp = get_utc_time()
         fileInfo = {'file': file, 'timestamp': timestamp}
         index = name + ':' + id
         if index in self.files:
