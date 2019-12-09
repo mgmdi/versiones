@@ -58,13 +58,17 @@ class VersionController(object):
         lastReplicateServers = []
         receivedServers = []
         result = {}
-        timeout = time.time() + 15   # 15 sec from now
+        timeoutOuter = time.time() + 30   # 30 sec from now
+        timeoutInner = time.time() + 15   # 15 sec from now
+        now = datetime.now()
+        date_time = now.strftime('%m/%d/%Y %H:%M:%S')
+        timestamp = datetime.timestamp(now)
         while totalServers>0:
-            # Search for next k + 1 servers
+            # Search for next k + 1 - lastReplicateServers 
             replicateServers = getReplicateServers(self.lastReplicateServer, 
                 self.serversTable, self.coord['id'], totalServers, lastReplicateServers)
             if len(replicateServers)==0:
-                result['error'] = 'no servers left to replicate'
+                result['error'] = 'no servers left to replicate, replicated '+ str(self.k + 1 - totalServers)
                 return result
             # Change k if needed
             if len(replicateServers)!=self.k+1:
@@ -74,11 +78,8 @@ class VersionController(object):
                 else:
                     self.k = 1
             # Set message and notify broadcaster
-            now = datetime.now()
-            date_time = now.strftime('%m/%d/%Y %H:%M:%S')
-            timestamp = datetime.timestamp(now)
             self.serviceBroadcast.setMessage(Commit(id, name, file, timestamp, replicateServers))
-            self.canSend()
+            self.serviceBroadcast.canSend()
             # Receive, count and return if OK
             allSent = False
             while not allSent:
@@ -98,14 +99,21 @@ class VersionController(object):
                         # check to totalServers
                         self.totalServers -= self.commitResponses
                         self.commitResponses = 0
-                        for server in receivedServers: # Update version table
-                            pass
+                        for server in receivedServers:
+                            # Update version table
+                            if self.versionTable[int(server)][name]:
+                                self.versionTable[int(server)][name].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
+                            # Change replicateServers to receivedServers
+                            replicateServers = receivedServers
                     self.serviceBroadcast.setEndTransmission(False)
                     allSent = True
-                if time.time() > timeout:
+                if time.time() > timeoutInner:
                     result['error'] = 'no response for commit from servers'
                     return result
             lastReplicateServers = replicateServers
+            if time.time() > timeoutOuter:
+                result['error'] = 'no response for commit from servers'
+                return result
         return result
 
     def commitServer(self, file, name, id, timestamp):
@@ -119,7 +127,7 @@ class VersionController(object):
             serversIds = self.getServersVersion(name, id, time)
             # Set message and notify broadcaster
             self.serviceBroadcast.setMessage(Checkout(client=id, name=name, timestamp=time, ids=serversIds))
-            self.canSend()
+            self.serviceBroadcast.canSend()
             # Receive and return
             timeout = time.time() + 15   # 15 sec from now
             received = False
@@ -159,7 +167,7 @@ class VersionController(object):
             serversIds = self.getServersVersion(name, id)
             # Set message and notify broadcaster
             self.serviceBroadcast.setMessage(Update(client=id, name=name, ids=serversIds))
-            self.canSend()
+            self.serviceBroadcast.canSend()
             # Receive and return
             timeout = time.time() + 30   # 30 sec from now
             received = False
