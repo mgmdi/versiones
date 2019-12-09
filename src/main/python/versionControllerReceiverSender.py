@@ -152,7 +152,7 @@ class VersionController(object):
             # Search for last commit in all servers
             serversIds = self.getServersVersion(name, id, time)
             if len(serversIds)==0:
-                return recent_version
+                return version
             # Set message and notify broadcaster
             self.serviceBroadcast.setMessage(Checkout(client=id, name=name, timestamp=time, ids=serversIds))
             self.serviceBroadcast.canSend()
