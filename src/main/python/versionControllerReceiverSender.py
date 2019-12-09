@@ -154,6 +154,8 @@ class VersionController(object):
         if self.coord['id']==self.id:
             # Search for last commit in all servers
             serversIds = self.getServersVersion(name, id, time)
+            print('SERVERS ID')
+            print(serversIds)
             if len(serversIds)==0:
                 version['error'] = 'no files found'
                 return version
@@ -332,7 +334,7 @@ class VersionController(object):
         if not version: # Update
             recentVersion = -1
             for server in self.versionTable: # dict[id]={'file1':[1,2,3,4],..}
-                key = name
+                key = name + ':' + id
                 if key in self.versionTable[server]:
                     for timestamp in self.versionTable[server][key]:
                         if timestamp >= recentVersion:
@@ -341,7 +343,7 @@ class VersionController(object):
         # Buscar los que tienen la version reciente
         servers = []
         for server in self.versionTable:
-            key = name
+            key = name + ':' + id
             if key in self.versionTable[server]:
                 for timestamp in self.versionTable[server][key]:
                     if timestamp == recentVersion:
