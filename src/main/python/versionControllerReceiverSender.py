@@ -87,14 +87,19 @@ class VersionController(object):
             allSent = False
             while not allSent:
                 if(self.serviceBroadcast.theresMessage()):
-                    for i in range(len(self.serviceBroadcast.messageQueue)):
+                    i = 0
+                    while i < len(self.serviceBroadcast.messageQueue):
                         if self.serviceBroadcast.messageQueue[i].code!=8: # not ACK Commit
+                            i += 1
                             continue
                         if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id and self.serviceBroadcast.messageQueue[i].timestamp==timestamp:
                             msg = self.serviceBroadcast.messageQueue.pop(i)
+                            i -= 1
                             # Check id and count
                             receivedServers.append(msg.id)
                             self.commitResponses += 1
+                            continue
+                        i += 1
                 elif(self.serviceBroadcast.getEndTransmission()['endTransmission']):
                     # Si termino la transmision y ya procese todos los mensajes
                     print('COMMIT RESPONSES: ' + str(self.commitResponses))
