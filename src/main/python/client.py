@@ -163,11 +163,6 @@ def main():
     #    servers.update('file', ip)
     #    time.sleep(1)
     #    print("THIRD")
-        # print(servers.checkout('file', ip, '11/24/2019 22:12:29'))
-        # Server getVersions pasandole el cliente y el nombre del archivo para mostrar
-    #except Exception:
-        #print("Pyro traceback:")
-        #print("".join(Pyro4.util.getPyroTraceback()))
     ip = get_ip_address()
     if ip==None:
         print("Not connected to the internet")
