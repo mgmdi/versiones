@@ -60,9 +60,10 @@ class VersionController(object):
         result = {}
         timeoutOuter = time.time() + 30   # 30 sec from now
         timeoutInner = time.time() + 15   # 15 sec from now
-        now = datetime.now()
-        date_time = now.strftime('%m/%d/%Y %H:%M:%S')
-        timestamp = datetime.timestamp(now)
+        # now = datetime.now()
+        # date_time = now.strftime('%m/%d/%Y %H:%M:%S')
+        # timestamp = datetime.timestamp(now)
+        timestamp = get_utc_time()
         while totalServers>0:
             # Search for next k + 1 - lastReplicateServers 
             replicateServers = getReplicateServers(self.lastReplicateServer, 
@@ -115,9 +116,10 @@ class VersionController(object):
                         self.commitResponses = 0
                         first = True
                         for server in receivedServers:
-                            if first:
+                            if first and self.k != 0:
                                 first = False
                                 self.lastReplicateServer = server
+                                print()
                             # Update version table
                             if not server in self.versionTable:
                                 self.versionTable[server] = {}
@@ -152,6 +154,7 @@ class VersionController(object):
             # Search for last commit in all servers
             serversIds = self.getServersVersion(name, id, time)
             if len(serversIds)==0:
+                version['error'] = 'no files found'
                 return version
             # Set message and notify broadcaster
             self.serviceBroadcast.setMessage(Checkout(client=id, name=name, timestamp=time, ids=serversIds))
@@ -166,13 +169,13 @@ class VersionController(object):
                         self.serviceBroadcast.append(msg)
                     else:
                         print('CHECKOUT MESSAGE IS '+str(msg))
-                        recent_version['file'] = msg.file
-                        recent_version['date'] = msg.timestamp
+                        version['file'] = msg.file
+                        version['date'] = msg.timestamp
                         received = True
-                        return recent_version
+                        return version
 
                 if time.time() > timeout and not received:
-                    recent_version['error']= 'timeout: no respose for update'
+                    version['error']= 'timeout: no respose for update'
                     break
             
         else:    
