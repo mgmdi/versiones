@@ -79,7 +79,8 @@ class VersionController(object):
                 if replicateNo>1:
                     self.k = replicateNo - 1
                 else:
-                    self.k = 1
+                    self.k = 0
+                totalServers = self.k + 1
             # Set message and notify broadcaster
             self.serviceBroadcast.setMessage(Commit(client=id, name=name, file=file, timestamp=timestamp, ids=replicateServers))
             self.serviceBroadcast.canSend()
@@ -87,19 +88,23 @@ class VersionController(object):
             allSent = False
             while not allSent:
                 if(self.serviceBroadcast.theresMessage()):
-                    i = 0
-                    while i < len(self.serviceBroadcast.messageQueue):
-                        if self.serviceBroadcast.messageQueue[i].code!=8: # not ACK Commit
-                            i += 1
-                            continue
-                        if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id and self.serviceBroadcast.messageQueue[i].timestamp==timestamp:
-                            msg = self.serviceBroadcast.messageQueue.pop(i)
-                            i -= 1
+                    # i = 0
+                    # while i < len(self.serviceBroadcast.messageQueue):
+                        # if self.serviceBroadcast.messageQueue[0].code!=8: # not ACK Commit
+                        #     i += 1
+                        #     continue
+                        # if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id and self.serviceBroadcast.messageQueue[i].timestamp==timestamp:
+                    msg = self.serviceBroadcast.getQueuedMessage()
+                    if msg.code!=8:
+                        self.serviceBroadcast.append(msg)
+                            # i -= 1
                             # Check id and count
-                            receivedServers.append(msg.id)
-                            self.commitResponses += 1
-                            continue
-                        i += 1
+                    else:
+                        print('MESSAGE IS '+str(msg))
+                        receivedServers.append(msg.id)
+                        self.commitResponses += 1
+                        #     continue
+                        # i += 1
                 elif(self.serviceBroadcast.getEndTransmission()['endTransmission']):
                     # Si termino la transmision y ya procese todos los mensajes
                     print('COMMIT RESPONSES: ' + str(self.commitResponses))
