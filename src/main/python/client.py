@@ -88,6 +88,8 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.label_2.setText("Selecciono la opcion: " + self.ui.comboBox.currentText())
         self.ui.comboBox_2.clear()
         versiones = self.servers.getTimeVersions(self.ui.comboBox.currentText(),self.ui.lineEdit_2.text())
+        print("VERSIONES::!:!!:!:")
+        print(versiones)
         self.ui.comboBox_2.addItems(versiones)
  
 def find_servers():

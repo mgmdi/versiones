@@ -125,10 +125,11 @@ class VersionController(object):
                                 self.versionTable[server] = {}
 
                             if not name in self.versionTable[server]:
-                                self.versionTable[server][name] = []
+                                key = name + ':' + id
+                                self.versionTable[server][key] = []
                             print("version table")
                             print(self.versionTable)
-                            self.versionTable[server][name].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
+                            self.versionTable[server][key].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
                         # Change replicateServers to receivedServers
                         replicateServers = receivedServers
                         allSent = True
@@ -242,23 +243,41 @@ class VersionController(object):
         return versions
 
     def getTimeVersions(self,name,id):
-                # Returns array: [datetime]
+        # Returns array: [datetime]
         versions = []
         key = name + ':' + id
-        if(key in self.files):
-            for version in self.files[key]:
-                date = datetime.fromtimestamp(version['timestamp'])
-                date_time = date.strftime('%m/%d/%Y %H:%M:%S')
-                versions.append(date_time)
-        print(versions)
-        return versions
+        # key = id
+        # if(key in self.versionTable):
+        #     for version in self.versionTable[key]:
+        #         date = datetime.fromtimestamp(version['timestamp'])
+        #         date_time = date.strftime('%m/%d/%Y %H:%M:%S')
+        #         versions.append(date_time)
+        for server in self.versionTable:
+            if key in self.versionTable[server]:
+                versions += self.versionTable[server][key]
+        versions = list(dict.fromkeys(versions))
+        versions_aux = []
+        for v in versions:
+            date = datetime.fromtimestamp(v)
+            date_time = date.strftime('%m/%d/%Y %H:%M:%S')
+            versions_aux.append(date_time)
+        print("VERSIONS AUX")
+        print(versions_aux)
+        return versions_aux
 
-    def getFileNames(self,id):
+    def getFileNames(self, id):
         fileNames = []
-        for key in self.files:
-            item = key.split(':')
-            if(id == item[1]):
-                fileNames.append(item[0])
+        for server in self.versionTable:
+            print("SERVEREEERRR")
+            print(server)
+            item = list(self.versionTable[server].keys())#.split(':')
+            print(self.versionTable)
+            print("ITEM:")
+            print(item)
+            for it in item:
+            	it2 = it.split(":")
+            	if it2[1] == id:
+                	fileNames.append(it2[0])
         return fileNames
         
 
@@ -891,6 +910,7 @@ class receiverProcesser(Thread):
                         'ip':message.ip,
                         'port':message.port
                     }
+                    print('RECIBI UN MENSAJE DEL COORDINADOR. EL COORDINADOR ES: ' + str(self.server.coord))
                     # print('received coord msg!!!!!!!!!!!!!!!!!!!!!!!!!')
                 elif(message.code == 4):
                     self.server.versionTable = message.versionTable
@@ -955,6 +975,7 @@ class broadcasterProcesser(Thread):
                             'ip': self.server.getHOST(),
                             'port': self.server.getPORT()
                         }
+                        print('SOY EL COORDINADOR: ' + str(self.server.coord))
                         # run_coord(self.server, self.server.getHOST(), self.server.getPORT(),0)
                         self.broadcaster.setMessage(CoordMessage(self.server.coord['id'],self.server.coord['ip'],self.server.coord['port']))
                         self.broadcaster.canSend()
