@@ -1,4 +1,5 @@
 import Pyro4
+import Pyro4.util
 import netifaces as ni
 import time
 from common import get_ip_address
@@ -22,25 +23,32 @@ def find_servers():
     return server
 
 def main():
-    ip = get_ip_address()
-    if ip==None:
-        print("Not connected to the internet")
-        return -1
-    client = Client(ip) # Debo obtener la direccion ip para pasarla como parametro
-    servers = find_servers()
-    versiones_dir = op.abspath(op.join(__file__, op.pardir, op.pardir, op.pardir, op.pardir))
-    file = open(op.join(versiones_dir, "requirements.txt"),'r')
-    file_ = open(op.join(versiones_dir, "test.txt"),'r')
-    servers.commit(file.read(), 'file', ip)
-    time.sleep(3.5)
-    servers.commit(file_.read(), 'file', ip)
-    # servers.getVersions('file', ip)
-    # time.sleep(3.5)
-    servers.update('file', ip)
-    time.sleep(3.5)
-    # print(servers.checkout('file', ip, '11/24/2019 22:12:29'))
-    # Server getVersions pasandole el cliente y el nombre del archivo para mostrar
-
+    
+    try:
+        ip = get_ip_address()
+        if ip==None:
+            print("Not connected to the internet")
+            return -1
+        client = Client(ip) # Debo obtener la direccion ip para pasarla como parametro
+        servers = find_servers()
+        versiones_dir = op.abspath(op.join(__file__, op.pardir, op.pardir, op.pardir, op.pardir))
+        file = open(op.join(versiones_dir, "requirements.txt"),'r')
+        file_ = open(op.join(versiones_dir, "test.txt"),'r')
+        servers.commit(file.read(), 'file', ip)
+        time.sleep(1)
+        print("FIRST")
+        servers.commit(file_.read(), 'file', ip)
+        # servers.getVersions('file', ip)
+        time.sleep(1)
+        print("second")
+        servers.update('file', ip)
+        time.sleep(1)
+        print("THIRD")
+        # print(servers.checkout('file', ip, '11/24/2019 22:12:29'))
+        # Server getVersions pasandole el cliente y el nombre del archivo para mostrar
+    except Exception:
+        print("Pyro traceback:")
+        print("".join(Pyro4.util.getPyroTraceback()))
 
 if __name__ == "__main__":
     main()

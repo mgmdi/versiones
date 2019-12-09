@@ -65,25 +65,25 @@ def getNextServer(lastReplicateServer, serversTable, coordId, excluding=[]):
     # Find server for replication
     boundId = None
     for serverId in serversTable:
-        if serverId==coordId or serverId in excluding:
+        if int(serverId)==coordId or int(serverId) in excluding:
             continue
-        if serverId>lastReplicateServer:
+        if int(serverId)>lastReplicateServer:
             if boundId:
-                if serverId<boundId: # Lowest upper bound
-                    boundId = serverId
+                if int(serverId)<boundId: # Lowest upper bound
+                    boundId = int(serverId)
             else:
-                boundId = serverId
+                boundId = int(serverId)
     
     if not boundId: # We have to restart list and get min
         for serverId in serversTable:
-            if serverId==coordId or serverId in excluding:
+            if int(serverId)==coordId or int(serverId) in excluding:
                 continue
-            if serverId<lastReplicateServer:
+            if int(serverId)<lastReplicateServer:
                 if boundId:
-                    if serverId<boundId: # Lower bound
-                        boundId = serverId
+                    if int(serverId)<boundId: # Lower bound
+                        boundId = int(serverId)
                 else:
-                    boundId = serverId
+                    boundId = int(serverId)
     return boundId
 
 
