@@ -259,9 +259,12 @@ class VersionController(object):
     def getFileNames(self, id):
         fileNames = []
         for server in self.versionTable:
-            item = self.versionTable[server].split(':')
-            if(id == item[1]):
-                fileNames.append(item[0])
+            item = list(self.versionTable[server].keys())#.split(':')
+            print(item)
+            for it in item:
+            	it2 = it.split(':')
+            	if(id == it2[1]):
+                	fileNames.append(it2[0])
         return fileNames
         
 
@@ -269,8 +272,12 @@ class VersionController(object):
         fileInfo = {'file': file, 'timestamp': timestamp}
         index = name + ':' + id
         if index in self.files:
+            print("INDEX:")
+            print(index)
             self.files[index].append(fileInfo)
         else:
+            print("INDEX2:")
+            print(index)
             self.files[index] = [fileInfo]
 
     def getRecentVersion(self, name, id):
