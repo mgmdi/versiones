@@ -161,17 +161,17 @@ class VersionController(object):
             received = False
             while not received:
                 if(self.serviceBroadcast.theresMessage()):
-                    for i in range(len(self.serviceBroadcast.messageQueue)):
-                        if self.serviceBroadcast.messageQueue[i]!=1:
-                            continue
-                        if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id and self.serviceBroadcast.messageQueue[i].timestamp==time:
-                            msg = self.serviceBroadcast.messageQueue.pop(i)
-                            recent_version['file'] = msg.file
-                            recent_version['date'] = msg.timestamp
-                            received = True
-                            break
+                    msg = self.serviceBroadcast.getQueuedMessage()
+                    if msg.code!=6:
+                        self.serviceBroadcast.append(msg)
+                    else:
+                        print('CHECKOUT MESSAGE IS '+str(msg))
+                        recent_version['file'] = msg.file
+                        recent_version['date'] = msg.timestamp
+                        received = True
+                        return recent_version
 
-                if time.time() > timeout:
+                if time.time() > timeout and not received:
                     recent_version['error']= 'timeout: no respose for update'
                     break
             
@@ -200,21 +200,21 @@ class VersionController(object):
             self.serviceBroadcast.setMessage(Update(client=id, name=name, ids=serversIds))
             self.serviceBroadcast.canSend()
             # Receive and return
-            timeout = time.time() + 30   # 30 sec from now
+            timeout = time.time() + 15
             received = False
             while not received:
                 if(self.serviceBroadcast.theresMessage()):
-                    for i in range(len(self.serviceBroadcast.messageQueue)):
-                        if self.serviceBroadcast.messageQueue[i]!=0:
-                            continue
-                        if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id:
-                            msg = self.serviceBroadcast.messageQueue.pop(i)
-                            recent_version['file'] = msg.file
-                            recent_version['date'] = msg.timestamp
-                            received = True
-                            break
+                    msg = self.serviceBroadcast.getQueuedMessage()
+                    if msg.code!=5:
+                        self.serviceBroadcast.append(msg)
+                    else:
+                        print('UPDATE MESSAGE IS '+str(msg))
+                        recent_version['file'] = msg.file
+                        recent_version['date'] = msg.timestamp
+                        received = True
+                        return recent_version
 
-                if time.time() > timeout:
+                if time.time() > timeout and not received:
                     recent_version['error']= 'timeout: no respose for update'
                     break
 
@@ -279,7 +279,6 @@ class VersionController(object):
     def getServersVersion(self, name, id, version=None):
         # version => checkout, else update
         # Buscar la última version del archivo
-        print("HOLAAAAAAAAAAAAAAAA")
         recentVersion = version
         if not version: # Update
             recentVersion = -1
@@ -287,8 +286,6 @@ class VersionController(object):
                 key = name
                 if key in self.versionTable[server]:
                     for timestamp in self.versionTable[server][key]:
-                        print(timestamp)
-                        print(recentVersion)
                         if timestamp >= recentVersion:
                             recentVersion = timestamp
 
@@ -299,7 +296,7 @@ class VersionController(object):
             if key in self.versionTable[server]:
                 for timestamp in self.versionTable[server][key]:
                     if timestamp == recentVersion:
-                        servers.append(server)
+                        servers.append(int(server))
         return servers
 
 class broadcast(Thread):
@@ -594,7 +591,8 @@ class broadcastService(Thread):
                     sent = sock.sendto(self.message, multicast_group)
 
                     # Look for responses from all recipients
-                    while True:
+                    looking = True
+                    while looking:
                         print('waiting to receive SERVICE')
                         try:
                             data, server = sock.recvfrom(4096)
@@ -604,11 +602,15 @@ class broadcastService(Thread):
                                 print('going to update ' + str(data.name))
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
+                                looking = False
+                                self.cantSend()
                                 break # First one is enough
                             elif(data.code == 6):
                                 self.response = Checkout(client=data.client, name=data.name, file=data.file, timestamp=data.timestamp)
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
+                                looking = False
+                                self.cantSend()
                                 break
                             elif(data.code == 8): # ACK commit
                                 self.response = ACKCommit(data.client, data.name, data.timestamp, data.id)
@@ -693,8 +695,9 @@ class receiveService(Thread):
                 print('received SERVICE {} bytes from {}'.format(
                     len(data_raw), address))
                 print('received service was '+str(data))
+                print(str(data.ids))
                 if int(self.server.id) in data.ids:
-                    print("Going to commit with "+str(self.server.id))
+                    print("Going to respond with "+str(self.server.id))
                     if(data.code == 5): # Update
                         # Find file
                         file = self.server.update(data.name, data.client)
