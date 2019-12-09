@@ -151,6 +151,8 @@ class VersionController(object):
         if self.coord['id']==self.id:
             # Search for last commit in all servers
             serversIds = self.getServersVersion(name, id, time)
+            if len(serversIds)==0:
+                return recent_version
             # Set message and notify broadcaster
             self.serviceBroadcast.setMessage(Checkout(client=id, name=name, timestamp=time, ids=serversIds))
             self.serviceBroadcast.canSend()
@@ -191,6 +193,9 @@ class VersionController(object):
         if self.coord['id']==self.id:
             # Search for last commit in all servers
             serversIds = self.getServersVersion(name, id)
+            print(serversIds)
+            if len(serversIds)==0:
+                return recent_version
             # Set message and notify broadcaster
             self.serviceBroadcast.setMessage(Update(client=id, name=name, ids=serversIds))
             self.serviceBroadcast.canSend()
@@ -274,23 +279,26 @@ class VersionController(object):
     def getServersVersion(self, name, id, version=None):
         # version => checkout, else update
         # Buscar la última version del archivo
+        print("HOLAAAAAAAAAAAAAAAA")
         recentVersion = version
         if not version: # Update
-            recentVersion = 0
-            for server in self.versionTable: # dict[id]={'user:file1':[1,2,3,4],..}
-                key = str(id) + name
+            recentVersion = -1
+            for server in self.versionTable: # dict[id]={'file1':[1,2,3,4],..}
+                key = name
                 if key in self.versionTable[server]:
                     for timestamp in self.versionTable[server][key]:
-                        if int(timestamp) >= recentVersion:
-                            recentVersion = int(timestamp)
+                        print(timestamp)
+                        print(recentVersion)
+                        if timestamp >= recentVersion:
+                            recentVersion = timestamp
 
         # Buscar los que tienen la version reciente
         servers = []
         for server in self.versionTable:
-            key = str(id) + name
+            key = name
             if key in self.versionTable[server]:
                 for timestamp in self.versionTable[server][key]:
-                    if int(timestamp) == recentVersion:
+                    if timestamp == recentVersion:
                         servers.append(server)
         return servers
 
@@ -593,6 +601,7 @@ class broadcastService(Thread):
                             data = pickle.loads(data)
                             if(data.code == 5):
                                 self.response = Update(client=data.client, name=data.name, file=data.file, timestamp=data.timestamp)
+                                print('going to update ' + str(data.name))
                                 self.messageQueue.append(self.response)
                                 self.clearResponse()
                                 break # First one is enough
