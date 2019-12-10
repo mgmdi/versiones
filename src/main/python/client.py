@@ -104,6 +104,7 @@ def find_servers():
 def update(file_name, user,servers):
     try:
         a = servers.update(file_name, user)
+        print(a)
         file = a['file']
         array_file = file_name.split(".")
         if array_file[1] == "txt":

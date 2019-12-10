@@ -166,13 +166,14 @@ class VersionController(object):
             self.serviceBroadcast.setMessage(Checkout(client=id, name=name, timestamp=versionFile, ids=serversIds))
             self.serviceBroadcast.canSend()
             # Receive and return
-            timeout = time.time() + 15   # 15 sec from now
+            timeout = time.time() + 60   # 15 sec from now
             received = False
             while not received:
                 if(self.serviceBroadcast.theresMessage()):
                     msg = self.serviceBroadcast.getQueuedMessage()
                     if msg.code!=6:
-                        self.serviceBroadcast.append(msg)
+                        #self.serviceBroadcast.append(msg)
+                        pass
                     else:
                         print('CHECKOUT MESSAGE IS '+str(msg))
                         version['file'] = msg.file
@@ -206,13 +207,16 @@ class VersionController(object):
             self.serviceBroadcast.setMessage(Update(client=id, name=name, ids=serversIds))
             self.serviceBroadcast.canSend()
             # Receive and return
-            timeout = time.time() + 15
+            timeout = time.time() + 60
             received = False
             while not received:
                 if(self.serviceBroadcast.theresMessage()):
                     msg = self.serviceBroadcast.getQueuedMessage()
+                    print('MESSAGE!!!!!!!!!!!!!!!!!: ')
+                    print(msg)
                     if msg.code!=5:
-                        self.serviceBroadcast.append(msg)
+                        # self.serviceBroadcast.append(msg)
+                        pass
                     else:
                         print('UPDATE MESSAGE IS '+str(msg))
                         recent_version['file'] = msg.file
@@ -654,6 +658,7 @@ class broadcastService(Thread):
                         try:
                             data, server = sock.recvfrom(4096)
                             data = pickle.loads(data)
+                            print('RECEIVED DATA: ' + str(data.code) + str(data))
                             if(data.code == 5):
                                 self.response = Update(client=data.client, name=data.name, file=data.file, timestamp=data.timestamp)
                                 print('going to update ' + str(data.name))
