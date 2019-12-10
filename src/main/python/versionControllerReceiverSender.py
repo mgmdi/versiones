@@ -97,7 +97,8 @@ class VersionController(object):
                         # if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id and self.serviceBroadcast.messageQueue[i].timestamp==timestamp:
                     msg = self.serviceBroadcast.getQueuedMessage()
                     if msg.code!=8:
-                        self.serviceBroadcast.append(msg)
+                        #self.serviceBroadcast.append(msg)
+                        pass
                             # i -= 1
                             # Check id and count
                     else:
@@ -151,10 +152,9 @@ class VersionController(object):
 
     def checkout(self, name, id, versionFile):
         version = {}
-        if(not isinstance(versionFile,float)):
+        if self.coord['id']==self.id:
             date_time_obj = datetime.strptime(versionFile, '%m/%d/%Y %H:%M:%S')
             versionFile = datetime.timestamp(date_time_obj)
-        if self.coord['id']==self.id:
             # Search for last commit in all servers
             serversIds = self.getServersVersion(name, id, versionFile)
             print('SERVERS ID')
@@ -289,7 +289,6 @@ class VersionController(object):
         #now = datetime.now()
         #date_time = now.strftime('%m/%d/%Y %H:%M:%S')
         #timestamp = datetime.timestamp(now)
-        timestamp = get_utc_time()
         fileInfo = {'file': file, 'timestamp': timestamp}
         index = name + ':' + id
         if index in self.files:
