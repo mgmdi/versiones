@@ -7,7 +7,6 @@ import os.path as op
 from PyQt5 import QtWidgets, QtGui,QtCore
 from mydesing import Ui_MainWindow  # importing our generated file
 import sys
-from PIL import Image
 import base64
 
 class Client:
@@ -103,32 +102,42 @@ def find_servers():
     return server
 
 def update(file_name, user,servers):
-    a = servers.update(file_name, user)
-    file = a['file']
-    array_file = file_name.split(".")
-    if array_file[1] == "txt":
-        f=open(file_name,"w")
-        f.write(file)
-        f.close()
-    else:
-        data = base64.b64decode(file["data"]) 
-        g = open(file_name, "wb")
-        g.write(data)
-        g.close()
+    try:
+        a = servers.update(file_name, user)
+        file = a['file']
+        array_file = file_name.split(".")
+        if array_file[1] == "txt":
+            f=open(file_name,"w")
+            f.write(file)
+            f.close()
+        else:
+            data = base64.b64decode(file["data"]) 
+            g = open(file_name, "wb")
+            g.write(data)
+            g.close()
+    except Exception:
+        print("Pyro traceback:")
+        print("".join(Pyro4.util.getPyroTraceback()))
 
 def checkout(file_name,user,date,servers):
-    a = servers.checkout(file_name, user, date)
-    file = a['file']
-    array_file = file_name.split(".")
-    if array_file[1] == "txt":
-        f=open(file_name,"w")
-        f.write(file)
-        f.close()
-    else:
-        data = base64.b64decode(file["data"]) 
-        g = open(file_name, "wb")
-        g.write(data)
-        g.close()
+    try:
+        print(date)
+        a = servers.checkout(file_name, user, date)
+        print(a)
+        file = a['file']
+        array_file = file_name.split(".")
+        if array_file[1] == "txt":
+            f=open(file_name,"w")
+            f.write(file)
+            f.close()
+        else:
+            data = base64.b64decode(file["data"]) 
+            g = open(file_name, "wb")
+            g.write(data)
+            g.close()
+    except Exception:
+        print("Pyro traceback:")
+        print("".join(Pyro4.util.getPyroTraceback()))
 
 def commit(file_name,user,servers):
     array_file = file_name.split(".")
@@ -143,6 +152,7 @@ def commit(file_name,user,servers):
             servers.commit(img,file_name,user)
 
 
+<<<<<<< HEAD
 def main():    
     #try:
     #    ip = get_ip_address()
@@ -164,6 +174,9 @@ def main():
     #    servers.update('file', ip)
     #    time.sleep(1)
     #    print("THIRD")
+=======
+def main():
+>>>>>>> e4c69e0e39b3e09de00ea44ba07e654c1e917c35
     ip = get_ip_address()
     if ip==None:
         print("Not connected to the internet")

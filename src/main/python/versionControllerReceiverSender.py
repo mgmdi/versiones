@@ -97,7 +97,8 @@ class VersionController(object):
                         # if self.serviceBroadcast.messageQueue[i].name==name and self.serviceBroadcast.messageQueue[i].client==id and self.serviceBroadcast.messageQueue[i].timestamp==timestamp:
                     msg = self.serviceBroadcast.getQueuedMessage()
                     if msg.code!=8:
-                        self.serviceBroadcast.append(msg)
+                        #self.serviceBroadcast.append(msg)
+                        pass
                             # i -= 1
                             # Check id and count
                     else:
@@ -115,6 +116,7 @@ class VersionController(object):
                         totalServers -= self.commitResponses
                         self.commitResponses = 0
                         first = True
+                        key = name + ':' + id
                         for server in receivedServers:
                             if first and self.k != 0:
                                 first = False
@@ -124,11 +126,11 @@ class VersionController(object):
                             if not server in self.versionTable:
                                 self.versionTable[server] = {}
 
-                            if not name in self.versionTable[server]:
-                                self.versionTable[server][name+':'+id] = []
+                            if not key in self.versionTable[server]:
+                                self.versionTable[server][key] = []
+                            self.versionTable[server][key].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
                             print("version table")
                             print(self.versionTable)
-                            self.versionTable[server][name+':'+id].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
                         # Change replicateServers to receivedServers
                         replicateServers = receivedServers
                         allSent = True
@@ -148,16 +150,20 @@ class VersionController(object):
         self.addFile(file, name, id, timestamp)
         print(self.files)
 
-    def checkout(self, name, id, time):
+    def checkout(self, name, id, versionFile):
         version = {}
         if self.coord['id']==self.id:
+            date_time_obj = datetime.strptime(versionFile, '%m/%d/%Y %H:%M:%S')
+            versionFile = datetime.timestamp(date_time_obj)
             # Search for last commit in all servers
-            serversIds = self.getServersVersion(name, id, time)
+            serversIds = self.getServersVersion(name, id, versionFile)
+            print('SERVERS ID')
+            print(serversIds)
             if len(serversIds)==0:
                 version['error'] = 'no files found'
                 return version
             # Set message and notify broadcaster
-            self.serviceBroadcast.setMessage(Checkout(client=id, name=name, timestamp=time, ids=serversIds))
+            self.serviceBroadcast.setMessage(Checkout(client=id, name=name, timestamp=versionFile, ids=serversIds))
             self.serviceBroadcast.canSend()
             # Receive and return
             timeout = time.time() + 15   # 15 sec from now
@@ -182,11 +188,8 @@ class VersionController(object):
             key = name + ':' + id
             if(key in self.files):
                 for version in self.files[key]:
-                    # print(version)
-                    date_time_obj = datetime.strptime(time, '%m/%d/%Y %H:%M:%S')
-                    stamp = datetime.timestamp(date_time_obj)
                     # print(stamp)
-                    if(int(version['timestamp']) == int(stamp)):
+                    if(int(version['timestamp']) == int(versionFile)):
                         print(version)
                         return version
         return version
@@ -255,6 +258,7 @@ class VersionController(object):
             if key in self.versionTable[server]:
                 versions += self.versionTable[server][key]
         versions = list(dict.fromkeys(versions))
+        print('VERSIONS: ' + str(versions))
         versions_aux = []
         for v in versions:
             date = datetime.fromtimestamp(v)
@@ -274,14 +278,17 @@ class VersionController(object):
             print("ITEM:")
             print(item)
             for it in item:
-            	it2 = it.split(":")
-            	if it2[1] == id:
+                it2 = it.split(":")
+                if it2[1] == id:
                     if(it2[0] not in fileNames):
-                	    fileNames.append(it2[0])
+                        fileNames.append(it2[0])
         return fileNames
         
 
     def addFile(self, file, name, id, timestamp):
+        #now = datetime.now()
+        #date_time = now.strftime('%m/%d/%Y %H:%M:%S')
+        #timestamp = datetime.timestamp(now)
         fileInfo = {'file': file, 'timestamp': timestamp}
         index = name + ':' + id
         if index in self.files:
@@ -329,8 +336,8 @@ class VersionController(object):
         recentVersion = version
         if not version: # Update
             recentVersion = -1
-            for server in self.versionTable: # dict[id]={'file1:naruto':[1,2,3,4],..}
-                key = name
+            for server in self.versionTable: # dict[id]={'file1':[1,2,3,4],..}
+                key = name + ':' + id
                 if key in self.versionTable[server]:
                     for timestamp in self.versionTable[server][key]:
                         if timestamp >= recentVersion:
@@ -339,10 +346,17 @@ class VersionController(object):
         # Buscar los que tienen la version reciente
         servers = []
         for server in self.versionTable:
-            key = name
+            key = name + ':' + id
+            print('VERSION TABLE: ' +  str(self.versionTable[server]))
             if key in self.versionTable[server]:
                 for timestamp in self.versionTable[server][key]:
+                    print('TIMESTAMPPP')
+                    print(timestamp)
+                    print(type(timestamp))
+                    print('RECENT VERSION')
+                    print(recentVersion)
                     if timestamp == recentVersion:
+                        print('ENTREEEE')
                         servers.append(int(server))
         return servers
 
@@ -753,7 +767,7 @@ class receiveService(Thread):
                         sock.sendto(pickle.dumps(self.receivedMsg), address)
                     elif(data.code == 6): # Checkout
                         file = self.server.checkout(data.name, data.client, data.timestamp)
-                        print('sending CHECKOUT of '+ data.name +' at '+ data.time +' to ', address)
+                        #print('sending CHECKOUT of '+ data.name +' at '+ data.timestamp +' to ', address)
                         sock.sendto(pickle.dumps(Checkout(client=data.client, name=data.name, file=file['file'], timestamp=data.timestamp)), address)
                     elif(data.code == 7): # Commit
                         self.server.commitServer(data.file, data.name, data.client, data.timestamp)
@@ -900,8 +914,7 @@ class receiverProcesser(Thread):
                 message = self.receiver.getQueuedMessage()
                 if(message.code == 0):
                     self.server.serversTable[message.id] = message.ip + ':' + str(message.port)
-                    print('SERVERS TABLE')
-                    print(self.server.serversTable)
+                    print('LA TABLA DE SERVIDORES ES: ' + str(self.server.serversTable))
                     # print(self.server.serversTable)
                 elif(message.code == 1):
                     self.broadcaster.setMessage(ElectionMessage(self.server.getServerID()))
@@ -918,6 +931,7 @@ class receiverProcesser(Thread):
                     self.server.versionTable = message.versionTable
                     self.server.serversTable = message.serversTable
                     self.server.k = message.k
+                    print('LA TABLA DE SERVIDORES ES: ' + str(self.server.serversTable))
                     # print("received heartbeat and \nversion table "+str(message.versionTable)+"\nservers table "+str(message.serversTable))
 
 class broadcasterProcesser(Thread):
@@ -939,8 +953,9 @@ class broadcasterProcesser(Thread):
                 # print(response)
                 if(response.code == 0):
                     self.server.serversTable[response.id] = response.ip + ':' + str(response.port)
-                    print('SERVERS TABLE')
-                    print(self.server.serversTable)
+                    print('LA TABLA DE SERVIDORES ES: ' + str(self.server.serversTable))
+                    # print('SERVERS TABLE')
+                    # print(self.server.serversTable)
                 elif(response.code == 2):
                     # print('received coord msg, debo cambiar controller.server.coord')
                     self.server.coord = {
@@ -948,7 +963,7 @@ class broadcasterProcesser(Thread):
                         'ip': response.ip,
                         'port': response.port
                     }
-                    print('RECIBI MENSAJE DE COORDINADOR. EL COORDINADOR ES: ' + str(self.server.coord))
+                    print('RECIBI UN MENSAJE DEL COORDINADOR. EL COORDINADOR ES: ' + str(self.server.coord))
                     # print('servercoord : ' + str(self.server.coord))
                 elif(response.code == 3):
                     # print('ack response to ' + str(response.responseTo))  
@@ -1054,7 +1069,7 @@ class heartbeatChecker(Thread):
                     if(not self.receiver.heartbeatReceived and self.server.coord['id']):
                         # print(self.server.coord)
                         # print(self.server.serversTable)
-                        del self.server.serversTable[self.server.coord['id']] 
+                        del self.server.serversTable[self.server.coord['id']]
                         self.server.coord['id'] = None
                         self.broadcaster.messageQueue = []
                         self.receiver.messageQueue = []
