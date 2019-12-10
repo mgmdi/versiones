@@ -149,18 +149,21 @@ class VersionController(object):
         self.addFile(file, name, id, timestamp)
         print(self.files)
 
-    def checkout(self, name, id, time):
+    def checkout(self, name, id, versionFile):
         version = {}
+        if(not isinstance(versionFile,float)):
+            date_time_obj = datetime.strptime(versionFile, '%m/%d/%Y %H:%M:%S')
+            versionFile = datetime.timestamp(date_time_obj)
         if self.coord['id']==self.id:
             # Search for last commit in all servers
-            serversIds = self.getServersVersion(name, id, time)
+            serversIds = self.getServersVersion(name, id, versionFile)
             print('SERVERS ID')
             print(serversIds)
             if len(serversIds)==0:
                 version['error'] = 'no files found'
                 return version
             # Set message and notify broadcaster
-            self.serviceBroadcast.setMessage(Checkout(client=id, name=name, timestamp=time, ids=serversIds))
+            self.serviceBroadcast.setMessage(Checkout(client=id, name=name, timestamp=versionFile, ids=serversIds))
             self.serviceBroadcast.canSend()
             # Receive and return
             timeout = time.time() + 15   # 15 sec from now
@@ -185,11 +188,8 @@ class VersionController(object):
             key = name + ':' + id
             if(key in self.files):
                 for version in self.files[key]:
-                    # print(version)
-                    date_time_obj = datetime.strptime(time, '%m/%d/%Y %H:%M:%S')
-                    stamp = datetime.timestamp(date_time_obj)
                     # print(stamp)
-                    if(int(version['timestamp']) == int(stamp)):
+                    if(int(version['timestamp']) == int(versionFile)):
                         print(version)
                         return version
         return version
@@ -344,9 +344,16 @@ class VersionController(object):
         servers = []
         for server in self.versionTable:
             key = name + ':' + id
+            print('VERSION TABLE: ' +  str(self.versionTable[server]))
             if key in self.versionTable[server]:
                 for timestamp in self.versionTable[server][key]:
+                    print('TIMESTAMPPP')
+                    print(timestamp)
+                    print(type(timestamp))
+                    print('RECENT VERSION')
+                    print(recentVersion)
                     if timestamp == recentVersion:
+                        print('ENTREEEE')
                         servers.append(int(server))
         return servers
 
@@ -757,7 +764,7 @@ class receiveService(Thread):
                         sock.sendto(pickle.dumps(self.receivedMsg), address)
                     elif(data.code == 6): # Checkout
                         file = self.server.checkout(data.name, data.client, data.timestamp)
-                        print('sending CHECKOUT of '+ data.name +' at '+ data.time +' to ', address)
+                        #print('sending CHECKOUT of '+ data.name +' at '+ data.timestamp +' to ', address)
                         sock.sendto(pickle.dumps(Checkout(client=data.client, name=data.name, file=file['file'], timestamp=data.timestamp)), address)
                     elif(data.code == 7): # Commit
                         self.server.commitServer(data.file, data.name, data.client, data.timestamp)
