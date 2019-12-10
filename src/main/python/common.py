@@ -44,7 +44,7 @@ def run_coord(server, ip, server_port, server_no):
     with Pyro4.Daemon(host=ip, port=server_port) as daemon:
         server_uri = daemon.register(server)
         with Pyro4.locateNS() as ns:
-            ns.register(f"server.test{server_no}", server_uri)
+            ns.register("server.test{}".format(server_no), server_uri)
             #server.setPORT(server_port)
             print("Servers available.")
             daemon.requestLoop()
