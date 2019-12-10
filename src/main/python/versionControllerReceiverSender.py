@@ -60,9 +60,9 @@ class VersionController(object):
         result = {}
         timeoutOuter = time.time() + 30   # 30 sec from now
         timeoutInner = time.time() + 15   # 15 sec from now
-        # now = datetime.now()
-        # date_time = now.strftime('%m/%d/%Y %H:%M:%S')
-        # timestamp = datetime.timestamp(now)
+        #now = datetime.now()
+        #date_time = now.strftime('%m/%d/%Y %H:%M:%S')
+        #timestamp = datetime.timestamp(now)
         timestamp = get_utc_time()
         while totalServers>0:
             # Search for next k + 1 - lastReplicateServers 
@@ -125,11 +125,10 @@ class VersionController(object):
                                 self.versionTable[server] = {}
 
                             if not name in self.versionTable[server]:
-                                key = name + ':' + id
-                                self.versionTable[server][key] = []
+                                self.versionTable[server][name+':'+id] = []
                             print("version table")
                             print(self.versionTable)
-                            self.versionTable[server][key].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
+                            self.versionTable[server][name+':'+id].append(timestamp) # dict[id]={'file1':[1,2,3,4],..}
                         # Change replicateServers to receivedServers
                         replicateServers = receivedServers
                         allSent = True
@@ -277,20 +276,21 @@ class VersionController(object):
             for it in item:
             	it2 = it.split(":")
             	if it2[1] == id:
-                	fileNames.append(it2[0])
+                    if(it2[0] not in fileNames):
+                	    fileNames.append(it2[0])
         return fileNames
         
 
     def addFile(self, file, name, id, timestamp):
-        #now = datetime.now()
-        #date_time = now.strftime('%m/%d/%Y %H:%M:%S')
-        #timestamp = datetime.timestamp(now)
-        timestamp = get_utc_time()
         fileInfo = {'file': file, 'timestamp': timestamp}
         index = name + ':' + id
         if index in self.files:
+            print("INDEX:")
+            print(index)
             self.files[index].append(fileInfo)
         else:
+            print("INDEX2:")
+            print(index)
             self.files[index] = [fileInfo]
 
     def getRecentVersion(self, name, id):
@@ -329,7 +329,7 @@ class VersionController(object):
         recentVersion = version
         if not version: # Update
             recentVersion = -1
-            for server in self.versionTable: # dict[id]={'file1':[1,2,3,4],..}
+            for server in self.versionTable: # dict[id]={'file1:naruto':[1,2,3,4],..}
                 key = name
                 if key in self.versionTable[server]:
                     for timestamp in self.versionTable[server][key]:
@@ -735,7 +735,7 @@ class receiveService(Thread):
 
         # Receive/respond loop
         while True:
-            print('\nwaiting to receive SERVICE message\n')
+            #print('\nwaiting to receive SERVICE message\n')
             data_raw, address = sock.recvfrom(4096)
             data = pickle.loads(data_raw)
             if data.code>4:
@@ -900,6 +900,8 @@ class receiverProcesser(Thread):
                 message = self.receiver.getQueuedMessage()
                 if(message.code == 0):
                     self.server.serversTable[message.id] = message.ip + ':' + str(message.port)
+                    print('SERVERS TABLE')
+                    print(self.server.serversTable)
                     # print(self.server.serversTable)
                 elif(message.code == 1):
                     self.broadcaster.setMessage(ElectionMessage(self.server.getServerID()))
@@ -937,8 +939,8 @@ class broadcasterProcesser(Thread):
                 # print(response)
                 if(response.code == 0):
                     self.server.serversTable[response.id] = response.ip + ':' + str(response.port)
-                    # print('SERVERS TABLE')
-                    # print(self.server.serversTable)
+                    print('SERVERS TABLE')
+                    print(self.server.serversTable)
                 elif(response.code == 2):
                     # print('received coord msg, debo cambiar controller.server.coord')
                     self.server.coord = {
@@ -946,6 +948,7 @@ class broadcasterProcesser(Thread):
                         'ip': response.ip,
                         'port': response.port
                     }
+                    print('RECIBI MENSAJE DE COORDINADOR. EL COORDINADOR ES: ' + str(self.server.coord))
                     # print('servercoord : ' + str(self.server.coord))
                 elif(response.code == 3):
                     # print('ack response to ' + str(response.responseTo))  
@@ -979,11 +982,9 @@ class broadcasterProcesser(Thread):
                         # run_coord(self.server, self.server.getHOST(), self.server.getPORT(),0)
                         self.broadcaster.setMessage(CoordMessage(self.server.coord['id'],self.server.coord['ip'],self.server.coord['port']))
                         self.broadcaster.canSend()
+                        print('SOY EL COORDINADOR Y MI INFORMACION ES: ' + str(self.server.coord))
                     else:
                         self.electionResponses = 0
-                    # print('fin mensaje de eleccion, debo contar los ack')
-                    # print('COORD')
-                    # print(self.server.coord)
                 elif(self.broadcaster.getEndTransmission()['messageType'] == 4):
                     # print('process hearbeats!!!!!')
                     # print(self.server.serversTable.items())
@@ -1100,7 +1101,7 @@ class replicateReceiver(Thread):
 
         while True:
             # Wait for a connection
-            print('waiting for a connection')
+            #print('waiting for a connection')
             connection, client_address = sock.accept()
             try:
                 print('connection from', client_address)
