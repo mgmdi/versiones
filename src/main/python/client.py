@@ -153,7 +153,31 @@ def commit(file_name,user,servers):
             servers.commit(img,file_name,user)
 
 
+<<<<<<< HEAD
+def main():    
+    #try:
+    #    ip = get_ip_address()
+    #    if ip==None:
+    #        print("Not connected to the internet")
+    #        return -1
+    #    client = Client(ip) # Debo obtener la direccion ip para pasarla como parametro
+    #    servers = find_servers()
+    #    versiones_dir = op.abspath(op.join(__file__, op.pardir, op.pardir, op.pardir, op.pardir))
+    #    file = open(op.join(versiones_dir, "requirements.txt"),'r')
+    #    file_ = open(op.join(versiones_dir, "test.txt"),'r')
+    #    servers.commit(file.read(), 'file', ip)
+    #    time.sleep(1)
+    #    print("FIRST")
+    #    servers.commit(file_.read(), 'file', ip)
+        # servers.getVersions('file', ip)
+    #    time.sleep(1)
+    #    print("second")
+    #    servers.update('file', ip)
+    #    time.sleep(1)
+    #    print("THIRD")
+=======
 def main():
+>>>>>>> e4c69e0e39b3e09de00ea44ba07e654c1e917c35
     ip = get_ip_address()
     if ip==None:
         print("Not connected to the internet")

@@ -60,9 +60,9 @@ class VersionController(object):
         result = {}
         timeoutOuter = time.time() + 30   # 30 sec from now
         timeoutInner = time.time() + 15   # 15 sec from now
-        # now = datetime.now()
-        # date_time = now.strftime('%m/%d/%Y %H:%M:%S')
-        # timestamp = datetime.timestamp(now)
+        #now = datetime.now()
+        #date_time = now.strftime('%m/%d/%Y %H:%M:%S')
+        #timestamp = datetime.timestamp(now)
         timestamp = get_utc_time()
         while totalServers>0:
             # Search for next k + 1 - lastReplicateServers 
@@ -296,8 +296,12 @@ class VersionController(object):
         fileInfo = {'file': file, 'timestamp': timestamp}
         index = name + ':' + id
         if index in self.files:
+            print("INDEX:")
+            print(index)
             self.files[index].append(fileInfo)
         else:
+            print("INDEX2:")
+            print(index)
             self.files[index] = [fileInfo]
 
     def getRecentVersion(self, name, id):
@@ -998,11 +1002,9 @@ class broadcasterProcesser(Thread):
                         # run_coord(self.server, self.server.getHOST(), self.server.getPORT(),0)
                         self.broadcaster.setMessage(CoordMessage(self.server.coord['id'],self.server.coord['ip'],self.server.coord['port']))
                         self.broadcaster.canSend()
+                        print('SOY EL COORDINADOR Y MI INFORMACION ES: ' + str(self.server.coord))
                     else:
                         self.electionResponses = 0
-                    # print('fin mensaje de eleccion, debo contar los ack')
-                    # print('COORD')
-                    # print(self.server.coord)
                 elif(self.broadcaster.getEndTransmission()['messageType'] == 4):
                     # print('process hearbeats!!!!!')
                     # print(self.server.serversTable.items())
@@ -1119,7 +1121,7 @@ class replicateReceiver(Thread):
 
         while True:
             # Wait for a connection
-            print('waiting for a connection')
+            #print('waiting for a connection')
             connection, client_address = sock.accept()
             try:
                 print('connection from', client_address)
